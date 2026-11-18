@@ -5,7 +5,7 @@ name: Add Nexus changelog
 #
 # Uses, in the "nexus" environment:
 #   secret   NEXUSMODS_API_KEY
-#   variable NEXUSMODS_MOD_ID   - optional; "Unique Mod ID" from Files tab -> Advanced -> API (set after the first manual upload)
+#   variable NEXUSMODS_MOD_ID   - optional; "Unique Mod ID" from Files tab -> Advanced -> API (default 7318624472044)
 
 on:
   workflow_dispatch:
@@ -28,13 +28,12 @@ jobs:
       - name: Post changelog
         env:
           KEY: ${{ secrets.NEXUSMODS_API_KEY }}
-          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID || 'SET_MOD_ID' }}
+          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID || '7318624472044' }}
           VERSION: ${{ inputs.version }}
           TEXT: ${{ inputs.changelog }}
         run: |
           if [ -z "$KEY" ]; then echo "::error::Secret NEXUSMODS_API_KEY is missing in the nexus environment"; exit 1; fi
           if [ -z "$MOD_ID" ]; then echo "::error::Variable NEXUSMODS_MOD_ID is missing in the nexus environment"; exit 1; fi
-          if [ "$MOD_ID" = "SET_MOD_ID" ]; then echo "::error::Nexus Mod ID not set yet"; exit 1; fi
           text=$(printf '%s\n' "$TEXT" | sed 's/ | /\n/g')
           body=$(jq -n --arg v "$VERSION" --arg c "$text" '{version: $v, changelog: $c}')
           code=$(curl -sS -o resp.json -w '%{http_code}' -X POST \
