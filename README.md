@@ -19,11 +19,14 @@ session log and a notification is shown, e.g.
   Anim flip-flop: MT_RunForward switched 3 times in 1.2 s: OAR: CATA / Light Armor <-> OAR: CLAMBER / Upwards Run
 That pattern restarts the animation mid-step (stutter / limp). Each slot warns at most every 10 s.
 
-1.3.0 - Animation dolls (F1 > Animation Watch > Animation Dolls)
+1.4.0 - Animation dolls (F1 > Animation Watch > Animation Dolls)
 ----------------------------------------
-One tab per activity (Running, Sprinting, Walking, Sneaking, Jumping, Swimming, One-handed,
-Two-handed, Bow, Spellcasting, Unarmed, Horse, Idle, Other). Each tab shows a figure with a label
-for every animation of that activity and the animation pack that wins it:
+A page of pictures, one per activity (Running, Sprinting, Walking, Sneaking, Jumping, Swimming,
+One-handed, Two-handed, Bow, Spellcasting, Unarmed, Horse, Idle, Other). Click a picture to see it
+large with every animation of that activity around it, each pointing at the picture (left-side
+animations on the left, right-side on the right, weapon animations at the weapon) and naming the
+mod it comes from (the Mod Organizer mod, and the OAR pack / submod or DAR folder).
+"Back to all pictures" returns. Labels are coloured:
   green  = one pack replaces it
   yellow = two or more packs compete (highest OAR priority wins when its conditions pass)
   red    = it flip-flopped between packs this session
@@ -38,7 +41,8 @@ Click a label to see the competing packs:
 The change is written to the submod's user.json (OAR's own override file); the original priority
 is kept in it as "animationWatchOriginalPriority", and an existing user.json is backed up to
 user.json.animationwatch.bak. Restart the game for OAR to use the new priority.
-Old DAR folders cannot be changed this way: the page says which folder number to rename to.
+Old DAR folders: "Rename it for me" renames the folder to the first free number above the others
+(after "Yes, rename it"; under MO2 the real folder inside the mod is renamed). Restart the game.
 
 F1 menu, section "Animation Watch":
   - Show animation names on screen (on/off)

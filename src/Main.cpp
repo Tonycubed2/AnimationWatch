@@ -1,4 +1,4 @@
-// AnimationWatch 1.3.0
+// AnimationWatch 1.4.0
 // Built against CommonLibSSE-NG for Skyrim AE 1.6.1170 (Address Library).
 //
 // Watches every animation clip the player's behavior graphs start (third person and first person),
@@ -19,6 +19,8 @@
 // run on bumpy ground), a WARNING line is written to the session log and shown on screen. That pattern
 // restarts the animation mid-step and looks like a stutter or limp.
 //
+// 1.4.0: the dolls page shows pictures (Data\Interface\AnimationWatch\*.png); click one to see its animations around it,
+// each pointing at the picture and naming its pack. Old DAR folders can be renamed for the player ("Rename it for me").
 // 1.3.0: animation dolls (Dolls.cpp): F1 > Animation Watch > Animation Dolls shows, per activity and gear, which
 // animation pack wins each animation, conflicts in yellow, flip-flops in red, and lets the player pick the winner.
 // 1.2.0: fixer catalog. When a flip-flop warning fires, every OAR submod involved whose settings say
@@ -46,7 +48,7 @@
 #include "Dolls.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 3, 0, 0 },
+	.Version = REL::Version{ 1, 4, 0, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -106,7 +108,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.3.0 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 1.4.0 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -679,7 +681,7 @@ namespace
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
 	SKSE::Init(a_skse);
-	logger::info("AnimationWatch 1.3.0 loading; game runtime {}", REL::Module::get().version().string());
+	logger::info("AnimationWatch 1.4.0 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);

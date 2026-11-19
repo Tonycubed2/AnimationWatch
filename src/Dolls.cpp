@@ -1,12 +1,16 @@
-// Animation dolls - AnimationWatch 1.3.0
+// Animation dolls - AnimationWatch 1.4.0
 //
-// F1 > Animation Watch > Animation Dolls: one page per activity (running, walking, jumping, one-handed ...).
-// Each page shows a figure with a label for every animation slot of that activity (run forward, run left ...)
-// and which animation pack wins it:
+// F1 > Animation Watch > Animation Dolls: a page of pictures, one per activity (Running, Walking, Jumping,
+// One-handed ...), each with its name on a cream label below. Clicking a picture shows it large in the middle of the
+// page with every animation of that activity around it, a line from each label to the picture:
+//   left-side animations (turn left, left hand, backward ...) on the left, right-side ones on the right,
+//   weapon animations (attack, block, draw, bow, cast ...) pointing at the weapon, the rest at the body.
+// Each label names the animation and the pack (mod / submod) it comes from, coloured by state:
 //   green  - one pack provides it for the gear shown
 //   yellow - two or more packs compete for it (the one with the higher OAR priority wins when its conditions pass)
 //   red    - it flip-flopped between packs this session (switching mid-step)
 //   grey   - no pack replaces it (vanilla)
+// The pictures are Data\Interface\AnimationWatch\*.png. "Back to all pictures" returns to the page of pictures.
 // "Gear" picks the view: all gear, light armor, heavy armor, clothing. Packs whose conditions name a gear type
 // (the game's ArmorLight / ArmorHeavy / ArmorClothing keywords, or the words in their folder names) only show
 // on that gear's view; packs without such a condition show on every view.
@@ -15,7 +19,8 @@
 // for that slot, by writing OAR's own user.json for the submod (a copy of its settings with the new priority, the
 // original priority kept as "animationWatchOriginalPriority"). "Make whole mod win" does that for every submod of
 // the mod, keeping their order. "Undo" puts the original priority back. OAR reads user.json when the game starts.
-// Old DAR folders cannot be changed this way; the page says which folder number to rename to.
+// Old DAR folders: "Rename it for me" renames the folder to the first free number above the others (after a
+// "Yes, rename it"); under Mod Organizer the real folder inside the MO2 mod is renamed.
 //
 // Where the data comes from: every OAR pack under Data\meshes\actors\character\animations\OpenAnimationReplacer
 // (third person) and ...\_1stperson\animations\OpenAnimationReplacer (first person) is read once at startup
@@ -29,6 +34,7 @@
 #include <climits>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <set>
 
 #include <nlohmann/json.hpp>
@@ -53,6 +59,7 @@ namespace Dolls
 		struct SubMod
 		{
 			std::string mod;        // OAR mod folder name (display name if the config has one)
+			std::string source;     // Mod Organizer mod (or "game Data folder") the files really come from
 			std::string modFolder;  // folder name, used to group "whole mod"
 			std::string name;       // submod display name
 			fs::path    dir;        // submod folder
@@ -199,6 +206,47 @@ namespace Dolls
 			}
 		}
 
+		// ---------------------------------------------------------------- renaming an old DAR folder
+		// Under Mod Organizer the game sees the folder through MO2's virtual Data folder: the rename is done on the
+		// real folder (in the MO2 mod), found from an open handle.
+		fs::path RealPathOf(const fs::path& a_path)
+		{
+			const HANDLE h = CreateFileW(a_path.wstring().c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+				FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+			if (h == INVALID_HANDLE_VALUE) {
+				return fs::absolute(a_path);
+			}
+			std::wstring buf(32768, L'\0');
+			const DWORD  n = GetFinalPathNameByHandleW(h, buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED);
+			CloseHandle(h);
+			if (n == 0 || n >= buf.size()) {
+				return fs::absolute(a_path);
+			}
+			buf.resize(n);
+			if (buf.rfind(L"\\\\?\\UNC\\", 0) == 0) {
+				buf = L"\\\\" + buf.substr(8);
+			} else if (buf.rfind(L"\\\\?\\", 0) == 0) {
+				buf = buf.substr(4);
+			}
+			return fs::path(buf);
+		}
+
+		// the Mod Organizer mod a folder really comes from: the folder before "meshes" in its real path
+		std::string SourceModOf(const fs::path& a_dir)
+		{
+			const auto real = RealPathOf(a_dir);
+			std::vector<std::string> parts;
+			for (const auto& part : real) {
+				parts.push_back(part.string());
+			}
+			for (std::size_t i = parts.size(); i-- > 1;) {
+				if (Lower(parts[i]) == "meshes") {
+					return Lower(parts[i - 1]) == "data" ? std::string("game Data folder") : parts[i - 1];
+				}
+			}
+			return {};
+		}
+
 		void ScanRoot(const fs::path& a_animations, bool a_firstPerson, std::vector<SubMod>& a_subs, std::map<std::string, Slot>& a_slots)
 		{
 			std::error_code ec;
@@ -231,6 +279,7 @@ namespace Dolls
 						s.modFolder = modFolder;
 						s.name = dir.filename().string();
 						s.dir = dir;
+						s.source = SourceModOf(dir);
 						const auto j = ParseJson(text);
 						if (const auto cj = ParseJson(config); cj.is_object() && cj.contains("name") && cj["name"].is_string()) {
 							s.name = cj["name"].get<std::string>();
@@ -274,6 +323,7 @@ namespace Dolls
 					s.modFolder = "DAR " + folder;
 					s.name = "folder " + folder;
 					s.dir = entry.path();
+					s.source = SourceModOf(entry.path());
 					s.priority = static_cast<int>(prio);
 					s.original = s.priority;
 					s.legacy = true;
@@ -490,30 +540,185 @@ namespace Dolls
 			return out;
 		}
 
-		// the figure, with a line from its body to every label row
-		void DrawDoll(const char* a_title, ImGuiMCP::ImVec2 a_origin, const std::vector<std::pair<float, ImGuiMCP::ImU32>>& a_rows, float a_labelX)
+		// "Mod name: OAR mod / submod" or "Mod name (DAR folder 33001)"
+		std::string FromText(const SubMod& a_sub)
+		{
+			if (a_sub.legacy) {
+				const auto folder = a_sub.dir.filename().string();
+				return a_sub.source.empty() ? "DAR folder " + folder : std::format("{} (DAR folder {})", a_sub.source, folder);
+			}
+			if (a_sub.source.empty() || Lower(a_sub.source) == Lower(a_sub.mod)) {
+				return std::format("{} / {}", a_sub.mod, a_sub.name);
+			}
+			return std::format("{}: {} / {}", a_sub.source, a_sub.mod, a_sub.name);
+		}
+
+		// ---------------------------------------------------------------- pictures
+		// Data\Interface\AnimationWatch\<file>.png, one per activity. Points on each picture, as a fraction of its
+		// width / height: where weapon animations point, where left-side and right-side animations point, and the body.
+		struct Picture
+		{
+			const char*      file;
+			float            aspect;  // width / height
+			ImGuiMCP::ImVec2 weapon;
+			ImGuiMCP::ImVec2 left;
+			ImGuiMCP::ImVec2 right;
+			ImGuiMCP::ImVec2 body;
+		};
+
+		const Picture kPictures[] = {
+			{ "running", 576.0f / 768.0f, { 0.86f, 0.36f }, { 0.20f, 0.45f }, { 0.86f, 0.36f }, { 0.55f, 0.40f } },       // Running
+			{ "sprinting", 577.0f / 768.0f, { 0.86f, 0.30f }, { 0.20f, 0.40f }, { 0.86f, 0.30f }, { 0.55f, 0.40f } },     // Sprinting
+			{ "walking", 576.0f / 768.0f, { 0.76f, 0.48f }, { 0.30f, 0.45f }, { 0.76f, 0.48f }, { 0.50f, 0.36f } },       // Walking
+			{ "sneaking", 702.0f / 768.0f, { 0.86f, 0.42f }, { 0.16f, 0.50f }, { 0.86f, 0.42f }, { 0.55f, 0.45f } },      // Sneaking
+			{ "jumping", 576.0f / 768.0f, { 0.86f, 0.24f }, { 0.25f, 0.35f }, { 0.76f, 0.30f }, { 0.50f, 0.36f } },       // Jumping
+			{ "swimming", 768.0f / 384.0f, { 0.88f, 0.45f }, { 0.12f, 0.62f }, { 0.88f, 0.45f }, { 0.55f, 0.50f } },      // Swimming
+			{ "one_handed", 577.0f / 768.0f, { 0.30f, 0.56f }, { 0.30f, 0.45f }, { 0.68f, 0.45f }, { 0.50f, 0.36f } },    // One-handed
+			{ "two_handed", 576.0f / 768.0f, { 0.84f, 0.42f }, { 0.25f, 0.50f }, { 0.68f, 0.43f }, { 0.48f, 0.38f } },    // Two-handed
+			{ "bow", 577.0f / 768.0f, { 0.74f, 0.24f }, { 0.15f, 0.25f }, { 0.74f, 0.24f }, { 0.45f, 0.42f } },           // Bow
+			{ "spellcasting", 576.0f / 768.0f, { 0.82f, 0.18f }, { 0.15f, 0.38f }, { 0.82f, 0.18f }, { 0.45f, 0.40f } },  // Spellcasting
+			{ "unarmed", 576.0f / 768.0f, { 0.75f, 0.28f }, { 0.30f, 0.40f }, { 0.75f, 0.28f }, { 0.50f, 0.36f } },       // Unarmed
+			{ "horse", 691.0f / 768.0f, { 0.27f, 0.31f }, { 0.15f, 0.60f }, { 0.88f, 0.48f }, { 0.45f, 0.35f } },         // Horse
+			{ "idle", 577.0f / 768.0f, { 0.62f, 0.55f }, { 0.35f, 0.45f }, { 0.62f, 0.45f }, { 0.50f, 0.35f } },          // Idle
+			{ "other", 576.0f / 768.0f, { 0.80f, 0.38f }, { 0.20f, 0.40f }, { 0.80f, 0.38f }, { 0.50f, 0.36f } },         // Other
+		};
+		static_assert(std::size(kPictures) == std::size(kActivities));
+
+		constexpr ImGuiMCP::ImU32 kCream = IM_COL32(243, 219, 190, 255);  // the pictures' background
+		constexpr ImGuiMCP::ImU32 kBrown = IM_COL32(70, 45, 25, 255);     // the outfits' dark brown
+		constexpr ImGuiMCP::ImU32 kBrownSoft = IM_COL32(120, 85, 55, 255);
+
+		ImGuiMCP::ImTextureID g_textures[std::size(kPictures)]{};
+		bool                  g_textureTried[std::size(kPictures)]{};
+
+		ImGuiMCP::ImTextureID TextureOf(int a_activity)
+		{
+			if (!g_textureTried[a_activity]) {
+				g_textureTried[a_activity] = true;
+				const auto path = std::format("Data\\Interface\\AnimationWatch\\{}.png", kPictures[a_activity].file);
+				g_textures[a_activity] = SKSEMenuFramework::LoadTexture(path);
+				if (!g_textures[a_activity]) {
+					logger::warn("Animation dolls: could not load {}", path);
+				}
+			}
+			return g_textures[a_activity];
+		}
+
+		// a picture fitted inside a box, centred; returns the picture's rectangle
+		void DrawPicture(int a_activity, ImGuiMCP::ImVec2 a_min, ImGuiMCP::ImVec2 a_max, ImGuiMCP::ImVec2& a_picMin, ImGuiMCP::ImVec2& a_picMax)
 		{
 			using namespace ImGuiMCP;
 			auto*       dl = GetWindowDrawList();
-			const ImU32 body = IM_COL32(210, 210, 220, 255);
-			const float cx = a_origin.x + 90.0f, top = a_origin.y + 40.0f;
-			ImDrawListManager::AddText(dl, ImVec2{ a_origin.x + 20.0f, a_origin.y }, IM_COL32(255, 255, 255, 255), a_title);
-			ImDrawListManager::AddCircle(dl, ImVec2{ cx, top + 18.0f }, 16.0f, body, 24, 2.5f);                      // head
-			ImDrawListManager::AddLine(dl, ImVec2{ cx, top + 34.0f }, ImVec2{ cx, top + 120.0f }, body, 3.0f);      // spine
-			ImDrawListManager::AddLine(dl, ImVec2{ cx, top + 50.0f }, ImVec2{ cx - 40.0f, top + 95.0f }, body, 3.0f);  // arms
-			ImDrawListManager::AddLine(dl, ImVec2{ cx, top + 50.0f }, ImVec2{ cx + 40.0f, top + 95.0f }, body, 3.0f);
-			ImDrawListManager::AddLine(dl, ImVec2{ cx, top + 120.0f }, ImVec2{ cx - 30.0f, top + 190.0f }, body, 3.0f);  // legs
-			ImDrawListManager::AddLine(dl, ImVec2{ cx, top + 120.0f }, ImVec2{ cx + 30.0f, top + 190.0f }, body, 3.0f);
-			for (const auto& [y, color] : a_rows) {
-				ImDrawListManager::AddLine(dl, ImVec2{ cx + 20.0f, top + 75.0f }, ImVec2{ a_labelX - 6.0f, y }, color, 1.0f);
-				ImDrawListManager::AddCircleFilled(dl, ImVec2{ a_labelX - 6.0f, y }, 4.0f, color, 12);
+			const float boxW = a_max.x - a_min.x, boxH = a_max.y - a_min.y;
+			const float aspect = kPictures[a_activity].aspect;
+			float       w = boxW, h = boxW / aspect;
+			if (h > boxH) {
+				h = boxH;
+				w = boxH * aspect;
+			}
+			a_picMin = ImVec2{ a_min.x + (boxW - w) * 0.5f, a_min.y + (boxH - h) * 0.5f };
+			a_picMax = ImVec2{ a_picMin.x + w, a_picMin.y + h };
+			if (const auto tex = TextureOf(a_activity)) {
+				ImDrawListManager::AddImage(dl, tex, a_picMin, a_picMax, ImVec2{ 0.0f, 0.0f }, ImVec2{ 1.0f, 1.0f }, IM_COL32(255, 255, 255, 255));
+			} else {
+				ImDrawListManager::AddText(dl, ImVec2{ a_picMin.x + 8.0f, a_picMin.y + 8.0f }, kBrown, "(picture missing: Data\\Interface\\AnimationWatch)");
 			}
 		}
+
+		// which side of the picture an animation's label goes to, and what it points at
+		enum class Side
+		{
+			kLeft,
+			kRight,
+			kWeapon,
+			kBody
+		};
+
+		Side SideOf(const std::string& a_fileLower, int a_activity)
+		{
+			const auto& f = a_fileLower;
+			auto has = [&](std::string_view s) { return f.find(s) != std::string::npos; };
+			auto starts = [&](std::string_view s) { return f.rfind(s, 0) == 0; };
+			auto ends = [&](std::string_view s) { return f.size() >= s.size() && f.compare(f.size() - s.size(), s.size(), s) == 0; };
+			// a spell hand says the side on its own
+			if (starts("mlh_") || has("lefthand")) {
+				return Side::kLeft;
+			}
+			if (starts("mrh_") || has("righthand")) {
+				return Side::kRight;
+			}
+			auto direction = [&]() -> std::optional<Side> {
+				if (has("left") || ends("_l") || has("_l_") || has("backward") || has("_back") || ends("back")) {
+					return Side::kLeft;
+				}
+				if (has("right") || ends("_r") || has("_r_") || has("forward") || has("fwd")) {
+					return Side::kRight;
+				}
+				return std::nullopt;
+			};
+			const bool weapon = has("attack") || has("power") || has("bash") || has("block") || has("draw") || has("sheath") || has("equip") ||
+			                    has("arrow") || has("shoot") || has("aim") || has("cast") || has("release") || has("ready") || has("charge") ||
+			                    has("swing") || has("combo") || has("kill") || has("recoil") || has("parry") || has("slash") || has("stab") ||
+			                    has("strike") || has("shield") || has("knock") || starts("bow") || has("crossbow");
+			const bool moving = a_activity <= 5 || a_activity == 11;  // running .. swimming, horse
+			if (moving) {
+				if (const auto d = direction()) {
+					return *d;
+				}
+				return weapon ? Side::kWeapon : Side::kBody;
+			}
+			if (weapon) {
+				return Side::kWeapon;
+			}
+			if (const auto d = direction()) {
+				return *d;
+			}
+			return Side::kBody;
+		}
+
+		int FreeDarNumber(const SubMod& a_sub, int a_above)
+		{
+			std::error_code ec;
+			const auto      real = RealPathOf(a_sub.dir).parent_path();
+			int             n = a_above + 1;
+			while (fs::exists(a_sub.dir.parent_path() / std::to_string(n), ec) || fs::exists(real / std::to_string(n), ec)) {
+				++n;
+			}
+			return n;
+		}
+
+		std::string RenameDar(SubMod& a_sub, int a_number)
+		{
+			const auto real = RealPathOf(a_sub.dir);
+			const auto target = real.parent_path() / std::to_string(a_number);
+			const auto old = a_sub.dir.filename().string();
+			if (!MoveFileExW(real.wstring().c_str(), target.wstring().c_str(), 0)) {
+				return std::format("Could not rename {} to {} (Windows error {}). Close any program that has a file in it open (MO2's file view, Explorer) and try again.",
+					real.string(), target.filename().string(), GetLastError());
+			}
+			std::error_code ec;
+			if (!fs::is_directory(target, ec)) {
+				return std::format("The rename of {} reported success but {} is not there.", real.string(), target.string());
+			}
+			logger::info("Dolls: DAR folder {} renamed to {} ({})", real.string(), a_number, target.string());
+			a_sub.dir = a_sub.dir.parent_path() / std::to_string(a_number);
+			a_sub.priority = a_number;
+			a_sub.original = a_number;
+			a_sub.modFolder = "DAR " + std::to_string(a_number);
+			a_sub.name = "folder " + std::to_string(a_number);
+			return std::format("DAR folder {} renamed to {} ({}). Restart the game for it to win. To undo, rename it back to {}.", old, a_number, target.string(), old);
+		}
+
+		std::size_t g_renameSub = SIZE_MAX;  // DAR submod waiting for "Yes, rename"
+		int         g_renameTo = 0;
 
 		void RenderPopup()
 		{
 			using namespace ImGuiMCP;
-			if (!BeginPopup("doll_slot")) {
+			PushStyleColor(ImGuiCol_PopupBg, ImVec4{ 0.07f, 0.07f, 0.09f, 1.0f });  // solid, so the page behind does not show through
+			const bool open = BeginPopup("doll_slot");
+			PopStyleColor();
+			if (!open) {
 				return;
 			}
 			const auto it = g_slots.find(g_popupSlot);
@@ -536,13 +741,32 @@ namespace Dolls
 			for (std::size_t r = 0; r < ranked.size(); ++r) {
 				auto& s = g_subMods[ranked[r]];
 				PushID(static_cast<int>(ranked[r]));
-				TextUnformatted(std::format("{} {} / {}   priority {}{}   [{}]", r == 0 ? "WINS:" : "     ", s.mod, s.name, s.priority,
+				if (r == 0) {
+					PushStyleColor(ImGuiCol_Text, ImVec4{ 0.47f, 0.80f, 1.0f, 1.0f });  // the winner: light sky blue
+				}
+				TextUnformatted(std::format("{} {}   priority {}{}   [{}]", r == 0 ? "WINS:" : "     ", FromText(s), s.priority,
 									s.changed ? std::format(" (was {}, changed by AnimationWatch)", s.original) : std::string(), GearText(s))
 									.c_str());
 				if (s.legacy) {
 					if (r != 0) {
-						TextWrapped("      Old DAR folder: to make it win, rename folder %s in DynamicAnimationReplacer\\_CustomConditions to a number above %d.",
+						TextWrapped("      Old DAR folder: to make it win, folder %s in DynamicAnimationReplacer\\_CustomConditions needs a number above %d.",
 							s.dir.filename().string().c_str(), maxOther);
+						if (g_renameSub != ranked[r]) {
+							if (SmallButton("Rename it for me")) {
+								g_renameSub = ranked[r];
+								g_renameTo = FreeDarNumber(s, maxOther);
+							}
+						} else {
+							TextWrapped("      Rename folder %s to %d?  (%s)", s.dir.filename().string().c_str(), g_renameTo, RealPathOf(s.dir).string().c_str());
+							if (SmallButton("Yes, rename it")) {
+								g_result = RenameDar(s, g_renameTo);
+								g_renameSub = SIZE_MAX;
+							}
+							SameLine();
+							if (SmallButton("No")) {
+								g_renameSub = SIZE_MAX;
+							}
+						}
 					}
 				} else {
 					// highest priority among the others for this slot and gear
@@ -592,6 +816,10 @@ namespace Dolls
 						}
 					}
 				}
+				if (r == 0) {
+					PopStyleColor();
+					Separator();
+				}
 				PopID();
 			}
 			if (ranked.size() > 1) {
@@ -611,54 +839,233 @@ namespace Dolls
 			EndPopup();
 		}
 
-		void RenderActivity(int a_activity)
+		// ---------------------------------------------------------------- the two views
+		int g_view = -1;  // -1: all pictures, else the activity shown large
+
+		struct Row
 		{
-			using namespace ImGuiMCP;
-			std::vector<const Slot*> slots;
+			const Slot*              slot;
+			std::vector<std::size_t> ranked;
+			State                    state;
+			Side                     side;
+		};
+
+		std::vector<Row> RowsOf(int a_activity)
+		{
+			std::vector<Row> rows;
 			for (const auto& [key, slot] : g_slots) {
 				if (slot.activity == a_activity && slot.firstPerson == g_firstPerson) {
-					slots.push_back(&slot);
+					Row r{ &slot, Ranked(slot), State::kVanilla, Side::kBody };
+					r.state = StateOf(slot, r.ranked);
+					r.side = SideOf(Lower(slot.file), a_activity);
+					rows.push_back(std::move(r));
 				}
 			}
-			if (slots.empty()) {
-				TextUnformatted("No animation pack replaces anything here.");
+			return rows;
+		}
+
+		// all pictures, as large as the page allows, each with its name below
+		void RenderGrid()
+		{
+			using namespace ImGuiMCP;
+			const auto avail = GetContentRegionAvail();
+			if (!BeginChild("doll_grid", avail)) {
+				EndChild();
 				return;
 			}
-			int counts[4]{};
-			const auto origin = GetCursorScreenPos();
-			const float labelX = origin.x + 210.0f;
-			std::vector<std::pair<float, ImU32>> rows;
-			const float childHeight = std::max(260.0f, std::min(560.0f, 22.0f * static_cast<float>(slots.size()) + 10.0f));
-			SetCursorScreenPos(ImVec2{ labelX, origin.y });
-			BeginChild("labels", ImVec2{ 0.0f, childHeight });
-			for (const auto* slot : slots) {
-				const auto ranked = Ranked(*slot);
-				const auto state = StateOf(*slot, ranked);
-				++counts[static_cast<int>(state)];
-				std::string winner = ranked.empty() ? std::string("game's own animation") : g_subMods[ranked[0]].mod + " / " + g_subMods[ranked[0]].name;
-				if (ranked.size() > 1) {
-					winner += std::format("   (+{} competing)", ranked.size() - 1);
-				}
-				const auto rowPos = GetCursorScreenPos();
-				if (rowPos.y >= origin.y && rowPos.y < origin.y + childHeight - 8.0f) {
-					rows.emplace_back(rowPos.y + 8.0f, ColorOf(state));
-				}
-				PushStyleColor(ImGuiCol_Text, Vec4Of(state));
-				if (Selectable(std::format("{:<28} {}##{}", slot->file, winner, slot->key).c_str())) {
-					g_popupSlot = slot->key;
-					OpenPopup("doll_slot");
-				}
-				PopStyleColor();
-				if (IsItemHovered()) {
-					SetTooltip("%s", "Click to see the competing packs and pick the winner");
+			int counts[kActivityCount][4]{};
+			for (const auto& [key, slot] : g_slots) {
+				if (slot.firstPerson == g_firstPerson) {
+					++counts[slot.activity][static_cast<int>(StateOf(slot, Ranked(slot)))];
 				}
 			}
+			const float gap = 12.0f;
+			const float labelH = GetTextLineHeight() + 12.0f;
+			const float width = GetContentRegionAvail().x - 4.0f;
+			// the fewest columns (largest pictures) that still fit the whole set on the page; else scroll
+			int cols = std::max(2, static_cast<int>((width + gap) / (200.0f + gap)));
+			for (int c = 3; c <= 8; ++c) {
+				const float tileW = (width - gap * static_cast<float>(c - 1)) / static_cast<float>(c);
+				const float tileH = tileW * 1.25f + labelH;
+				const int   rowsNeeded = (kActivityCount + c - 1) / c;
+				if (static_cast<float>(rowsNeeded) * (tileH + gap) <= avail.y) {
+					cols = c;
+					break;
+				}
+			}
+			const float tileW = (width - gap * static_cast<float>(cols - 1)) / static_cast<float>(cols);
+			const float picH = tileW * 1.25f;
+			const auto  origin = GetCursorScreenPos();
+			auto*       dl = GetWindowDrawList();
+			for (int a = 0; a < kActivityCount; ++a) {
+				const int   col = a % cols, row = a / cols;
+				const ImVec2 p0{ origin.x + static_cast<float>(col) * (tileW + gap), origin.y + static_cast<float>(row) * (picH + labelH + gap) };
+				const ImVec2 p1{ p0.x + tileW, p0.y + picH + labelH };
+				SetCursorScreenPos(p0);
+				PushID(a);
+				const bool clicked = InvisibleButton("tile", ImVec2{ tileW, picH + labelH });
+				const bool hovered = IsItemHovered();
+				PopID();
+				ImDrawListManager::AddRectFilled(dl, p0, p1, kCream, 8.0f, 0);
+				ImVec2 picMin, picMax;
+				DrawPicture(a, ImVec2{ p0.x + 4.0f, p0.y + 4.0f }, ImVec2{ p1.x - 4.0f, p0.y + picH }, picMin, picMax);
+				// label
+				const ImVec2 l0{ p0.x, p0.y + picH }, l1{ p1.x, p1.y };
+				ImDrawListManager::AddLine(dl, ImVec2{ l0.x + 10.0f, l0.y }, ImVec2{ l1.x - 10.0f, l0.y }, kBrownSoft, 1.0f);
+				const auto ts = CalcTextSize(kActivities[a]);
+				ImDrawListManager::AddText(dl, ImVec2{ l0.x + (tileW - ts.x) * 0.5f, l0.y + (labelH - ts.y) * 0.5f }, kBrown, kActivities[a]);
+				ImDrawListManager::AddRect(dl, p0, p1, hovered ? kBrown : kBrownSoft, 8.0f, 0, hovered ? 3.0f : 1.0f);
+				// problem badges: red (flip-flopped) and yellow (competing) counts
+				float bx = p1.x - 14.0f;
+				for (const State s : { State::kError, State::kConflict }) {
+					if (const int n = counts[a][static_cast<int>(s)]; n > 0) {
+						const auto text = std::to_string(n);
+						const auto bs = CalcTextSize(text.c_str());
+						const float r = std::max(bs.x, bs.y) * 0.5f + 5.0f;
+						ImDrawListManager::AddCircleFilled(dl, ImVec2{ bx - r + 6.0f, p0.y + r + 6.0f }, r, ColorOf(s), 20);
+						ImDrawListManager::AddText(dl, ImVec2{ bx - r + 6.0f - bs.x * 0.5f, p0.y + r + 6.0f - bs.y * 0.5f }, IM_COL32(20, 12, 5, 255), text.c_str());
+						bx -= 2.0f * r + 4.0f;
+					}
+				}
+				if (hovered) {
+					const int total = counts[a][0] + counts[a][1] + counts[a][2] + counts[a][3];
+					SetTooltip("%s: %d animations replaced or watched\n%d one pack (green), %d competing (yellow), %d flip-flopped (red)\nClick to open", kActivities[a],
+						total, counts[a][1], counts[a][2], counts[a][3]);
+				}
+				if (clicked) {
+					g_view = a;
+				}
+			}
+			const int rowsUsed = (kActivityCount + cols - 1) / cols;
+			SetCursorScreenPos(origin);
+			Dummy(ImVec2{ width, static_cast<float>(rowsUsed) * (picH + labelH + gap) });
+			EndChild();
+		}
+
+		// one picture, large in the middle, with its animations around it pointing at it
+		void RenderDetail(int a_activity)
+		{
+			using namespace ImGuiMCP;
+			if (Button("<  Back to all pictures")) {
+				g_view = -1;
+				return;
+			}
+			auto rows = RowsOf(a_activity);
+			int  counts[4]{};
+			for (const auto& r : rows) {
+				++counts[static_cast<int>(r.state)];
+			}
+			SameLine();
+			TextUnformatted(std::format("{}:  {} animations  -  {} green, {} yellow, {} red, {} game's own", kActivities[a_activity], rows.size(), counts[1], counts[2],
+				counts[3], counts[0])
+								.c_str());
+			const auto avail = GetContentRegionAvail();
+			if (!BeginChild("doll_detail", avail)) {
+				EndChild();
+				return;
+			}
+			const auto  origin = GetCursorScreenPos();
+			const float width = GetContentRegionAvail().x - 4.0f;
+			const float viewH = avail.y - 8.0f;
+			const float lineH = GetTextLineHeight();
+			const float rowH = lineH * 2.0f + 12.0f, rowGap = 6.0f;
+			const float colW = std::clamp(width * 0.27f, 220.0f, 430.0f);
+			const auto& pic = kPictures[a_activity];
+
+			// left column / right column
+			std::vector<Row*> left, right;
+			for (auto& r : rows) {
+				Side s = r.side;
+				if (s == Side::kWeapon) {
+					s = pic.weapon.x < 0.5f ? Side::kLeft : Side::kRight;
+				}
+				if (s == Side::kLeft) {
+					left.push_back(&r);
+				} else if (s == Side::kRight) {
+					right.push_back(&r);
+				}
+			}
+			for (auto& r : rows) {  // body animations fill whichever side is shorter
+				if (r.side == Side::kBody) {
+					(left.size() <= right.size() ? left : right).push_back(&r);
+				}
+			}
+
+			// the picture: as large as the space between the columns allows
+			const float picBoxW = std::max(160.0f, width - 2.0f * colW - 80.0f);
+			const ImVec2 box0{ origin.x + (width - picBoxW) * 0.5f, origin.y };
+			const ImVec2 box1{ box0.x + picBoxW, origin.y + viewH };
+			auto*        dl = GetWindowDrawList();
+			ImVec2       picMin, picMax;
+			DrawPicture(a_activity, box0, box1, picMin, picMax);
+			auto at = [&](ImVec2 n) { return ImVec2{ picMin.x + n.x * (picMax.x - picMin.x), picMin.y + n.y * (picMax.y - picMin.y) }; };
+
+			if (rows.empty()) {
+				ImDrawListManager::AddText(dl, ImVec2{ origin.x, origin.y }, IM_COL32(220, 220, 220, 255), "No animation pack replaces anything here.");
+			}
+
+			auto drawColumn = [&](std::vector<Row*>& a_column, bool a_left) {
+				const float total = static_cast<float>(a_column.size()) * (rowH + rowGap);
+				float       y = origin.y + std::max(0.0f, (viewH - total) * 0.5f);
+				const float x = a_left ? origin.x : origin.x + width - colW;
+				for (auto* r : a_column) {
+					const ImVec2 p0{ x, y }, p1{ x + colW, y + rowH };
+					SetCursorScreenPos(p0);
+					const bool clicked = InvisibleButton(r->slot->key.c_str(), ImVec2{ colW, rowH });
+					const bool hovered = IsItemHovered();
+					const auto color = ColorOf(r->state);
+					// what it points at
+					ImVec2 target;
+					switch (r->side) {
+					case Side::kWeapon:
+						target = at(pic.weapon);
+						break;
+					case Side::kLeft:
+						target = at(pic.left);
+						break;
+					case Side::kRight:
+						target = at(pic.right);
+						break;
+					default:
+						target = at(pic.body);
+						break;
+					}
+					const ImVec2 from{ a_left ? p1.x : p0.x, y + rowH * 0.5f };
+					ImDrawListManager::AddLine(dl, from, target, color, hovered ? 3.0f : 1.5f);
+					ImDrawListManager::AddCircleFilled(dl, target, 4.0f, color, 12);
+					// the label
+					ImDrawListManager::AddRectFilled(dl, p0, p1, kCream, 5.0f, 0);
+					ImDrawListManager::AddRectFilled(dl, p0, ImVec2{ p0.x + 7.0f, p1.y }, color, 5.0f, 0);
+					ImDrawListManager::AddRect(dl, p0, p1, hovered ? kBrown : color, 5.0f, 0, hovered ? 2.5f : 1.5f);
+					std::string from1 = r->ranked.empty() ? std::string("game's own animation") :
+					                                        "from " + FromText(g_subMods[r->ranked[0]]);
+					if (r->ranked.size() > 1) {
+						from1 += std::format("  (+{} competing)", r->ranked.size() - 1);
+					}
+					ImDrawListManager::PushClipRect(dl, p0, ImVec2{ p1.x - 4.0f, p1.y }, true);
+					const auto folder = fs::path(r->slot->key.substr(2)).parent_path().string();
+					const auto name1 = folder.empty() ? r->slot->file : std::format("{}   ({})", r->slot->file, folder);
+					ImDrawListManager::AddText(dl, ImVec2{ p0.x + 13.0f, p0.y + 5.0f }, kBrown, name1.c_str());
+					ImDrawListManager::AddText(dl, ImVec2{ p0.x + 13.0f, p0.y + 7.0f + lineH }, kBrownSoft, from1.c_str());
+					ImDrawListManager::PopClipRect(dl);
+					if (hovered) {
+						SetTooltip("%s\n%s\n%s\nClick to see the competing packs and pick the winner", r->slot->file.c_str(), from1.c_str(), r->slot->key.substr(2).c_str());
+					}
+					if (clicked) {
+						g_popupSlot = r->slot->key;
+						g_renameSub = SIZE_MAX;
+						OpenPopup("doll_slot");
+					}
+					y += rowH + rowGap;
+				}
+				return y;
+			};
+			const float endL = drawColumn(left, true);
+			const float endR = drawColumn(right, false);
+			SetCursorScreenPos(origin);
+			Dummy(ImVec2{ width, std::max(viewH, std::max(endL, endR) - origin.y) });
 			RenderPopup();
 			EndChild();
-			const auto after = GetCursorScreenPos();
-			DrawDoll(std::format("{}  -  {} green  {} yellow  {} red", kActivities[a_activity], counts[1], counts[2], counts[3]).c_str(), origin, rows, labelX);
-			SetCursorScreenPos(ImVec2{ origin.x, std::max(after.y, origin.y + 250.0f) });
-			Dummy(ImVec2{ 1.0f, 4.0f });
 		}
 	}
 
@@ -721,14 +1128,11 @@ namespace Dolls
 			TextWrapped("%s", g_result.c_str());
 		}
 		Separator();
-		if (BeginTabBar("doll_tabs")) {
-			for (int a = 0; a < kActivityCount; ++a) {
-				if (BeginTabItem(kActivities[a])) {
-					RenderActivity(a);
-					EndTabItem();
-				}
-			}
-			EndTabBar();
+		if (g_view < 0 || g_view >= kActivityCount) {
+			g_view = -1;
+			RenderGrid();
+		} else {
+			RenderDetail(g_view);
 		}
 	}
 }
