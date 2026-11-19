@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(AnimationWatch VERSION 1.0.0 LANGUAGES CXX)
+project(AnimationWatch VERSION 1.3.0 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -23,8 +23,11 @@ set(SKSE_SUPPORT_PATCH_SAFETY OFF CACHE BOOL "" FORCE)
 add_subdirectory("${COMMONLIB_DIR}" CommonLibSSE EXCLUDE_FROM_ALL)
 
 
+find_package(nlohmann_json CONFIG REQUIRED)
+
 add_library(${PROJECT_NAME} SHARED
 	src/Main.cpp
+	src/Dolls.cpp
 	src/PCH.h
 )
 
@@ -60,6 +63,6 @@ target_link_options(${PROJECT_NAME}
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/PCH.h)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE CommonLibSSE::CommonLibSSE)
+target_link_libraries(${PROJECT_NAME} PRIVATE CommonLibSSE::CommonLibSSE nlohmann_json::nlohmann_json)
 
 # No automatic copy: the finished DLL and PDB stay in build\Release\

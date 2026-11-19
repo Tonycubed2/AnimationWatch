@@ -1,4 +1,4 @@
-// AnimationWatch 1.2.2
+// AnimationWatch 1.3.0
 // Built against CommonLibSSE-NG for Skyrim AE 1.6.1170 (Address Library).
 //
 // Watches every animation clip the player's behavior graphs start (third person and first person),
@@ -19,6 +19,8 @@
 // run on bumpy ground), a WARNING line is written to the session log and shown on screen. That pattern
 // restarts the animation mid-step and looks like a stutter or limp.
 //
+// 1.3.0: animation dolls (Dolls.cpp): F1 > Animation Watch > Animation Dolls shows, per activity and gear, which
+// animation pack wins each animation, conflicts in yellow, flip-flops in red, and lets the player pick the winner.
 // 1.2.0: fixer catalog. When a flip-flop warning fires, every OAR submod involved whose settings say
 // "interruptible" is offered as a fix in the F1 menu (Animation Watch > Fixes): Apply writes a user.json next to
 // that submod's config.json (OAR's own per-user override file, the same file OAR's User mode writes): a copy of
@@ -41,9 +43,10 @@
 #include <shared_mutex>
 
 #include "SKSEMenuFramework.h"
+#include "Dolls.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 2, 2, 0 },
+	.Version = REL::Version{ 1, 3, 0, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -103,7 +106,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.2.2 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 1.3.0 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -399,6 +402,7 @@ namespace
 		constexpr double kQuiet = 10.0;      // warn a slot at most every 10 s
 
 		const auto source = SourceOf(a_path);
+		Dolls::OnPlayed(a_graph, a_path, source);
 		const std::string key = a_graph + "|" + (a_clip ? a_clip : "");
 		const double now = Now();
 		std::string warning;
@@ -441,6 +445,9 @@ namespace
 		}
 		if (!warning.empty()) {
 			++g_flipFlops;
+			for (const auto& [src, path] : burst) {
+				Dolls::MarkFlipFlop(a_graph, path);
+			}
 			WriteLine(std::format("{} | {} | WARNING flip-flop | {}", WallClock(), a_graph, warning));
 			logger::warn("Flip-flop: {} {}", a_graph, warning);
 			ShowWarning("Anim flip-flop: " + warning);
@@ -656,9 +663,11 @@ namespace
 	{
 		if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) {
 			InstallHooks();
+			Dolls::StartScan();
 			if (SKSEMenuFramework::IsInstalled()) {
 				SKSEMenuFramework::SetSection("Animation Watch");
 				SKSEMenuFramework::AddSectionItem("Settings", RenderMenu);
+				SKSEMenuFramework::AddSectionItem("Animation Dolls", Dolls::Render);
 				logger::info("F1 menu section added");
 			} else {
 				logger::warn("SKSE Menu Framework not found; no F1 menu (INI still works)");
@@ -670,7 +679,7 @@ namespace
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
 	SKSE::Init(a_skse);
-	logger::info("AnimationWatch 1.2.2 loading; game runtime {}", REL::Module::get().version().string());
+	logger::info("AnimationWatch 1.3.0 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);

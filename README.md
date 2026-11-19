@@ -1,6 +1,6 @@
 # AnimationWatch
 
-Shows which animation the player is really playing, after Open Animation Replacer / DAR picked the replacement, and catches animation packs that fight over the same animation (the cause of stutters, limps and runs cut off mid-step). Skyrim SE 1.5.97 and AE (SKSE).
+Shows which animation the player is really playing, after Open Animation Replacer / DAR picked the replacement, and catches animation packs that fight over the same animation (the cause of stutters, limps and runs cut off mid-step), and shows per activity and gear which pack wins each animation, with a one-click way to pick the winner. Skyrim SE 1.5.97 and AE (SKSE).
 
 Targets: Skyrim SE 1.5.97 and AE (Address Library).
 Requires: SKSE, Address Library for SKSE Plugins. Optional: SKSE Menu Framework (F1 menu).
@@ -18,6 +18,27 @@ switches to a different mod's file more than twice within 2 seconds, a WARNING l
 session log and a notification is shown, e.g.
   Anim flip-flop: MT_RunForward switched 3 times in 1.2 s: OAR: CATA / Light Armor <-> OAR: CLAMBER / Upwards Run
 That pattern restarts the animation mid-step (stutter / limp). Each slot warns at most every 10 s.
+
+1.3.0 - Animation dolls (F1 > Animation Watch > Animation Dolls)
+----------------------------------------
+One tab per activity (Running, Sprinting, Walking, Sneaking, Jumping, Swimming, One-handed,
+Two-handed, Bow, Spellcasting, Unarmed, Horse, Idle, Other). Each tab shows a figure with a label
+for every animation of that activity and the animation pack that wins it:
+  green  = one pack replaces it
+  yellow = two or more packs compete (highest OAR priority wins when its conditions pass)
+  red    = it flip-flopped between packs this session
+  grey   = the game's own animation
+"Gear" switches the view: All gear / Light armor / Heavy armor / Clothing (packs whose conditions
+use the ArmorLight / ArmorHeavy / ArmorClothing keywords, or have those words in their folder
+names). "First person" shows first-person animations.
+Click a label to see the competing packs:
+  Make winner        - raises that submod's OAR priority just above the others for that animation
+  Make whole mod win - raises every submod of that mod by the same amount (their order is kept)
+  Undo               - puts the original priority back
+The change is written to the submod's user.json (OAR's own override file); the original priority
+is kept in it as "animationWatchOriginalPriority", and an existing user.json is backed up to
+user.json.animationwatch.bak. Restart the game for OAR to use the new priority.
+Old DAR folders cannot be changed this way: the page says which folder number to rename to.
 
 F1 menu, section "Animation Watch":
   - Show animation names on screen (on/off)
