@@ -1,7 +1,5 @@
 # AnimationWatch
 
-Shows which animation the player is really playing, after Open Animation Replacer / DAR picked the replacement, and catches animation packs that fight over the same animation (the cause of stutters, limps and runs cut off mid-step), and shows per activity and gear which pack wins each animation, with a one-click way to pick the winner. Skyrim SE 1.5.97 and AE (SKSE).
-
 Targets: Skyrim SE 1.5.97 and AE (Address Library).
 Requires: SKSE, Address Library for SKSE Plugins. Optional: SKSE Menu Framework (F1 menu).
 
@@ -19,14 +17,12 @@ session log and a notification is shown, e.g.
   Anim flip-flop: MT_RunForward switched 3 times in 1.2 s: OAR: CATA / Light Armor <-> OAR: CLAMBER / Upwards Run
 That pattern restarts the animation mid-step (stutter / limp). Each slot warns at most every 10 s.
 
-1.4.0 - Animation dolls (F1 > Animation Watch > Animation Dolls)
-----------------------------------------
+Animation dolls (1.3.0, pictures 1.4.0): F1 > Animation Watch > Animation Dolls.
 A page of pictures, one per activity (Running, Sprinting, Walking, Sneaking, Jumping, Swimming,
 One-handed, Two-handed, Bow, Spellcasting, Unarmed, Horse, Idle, Other). Click a picture to see it
 large with every animation of that activity around it, each pointing at the picture (left-side
 animations on the left, right-side on the right, weapon animations at the weapon) and naming the
-mod it comes from (the Mod Organizer mod, and the OAR pack / submod or DAR folder).
-"Back to all pictures" returns. Labels are coloured:
+pack it comes from. "Back to all pictures" returns. Labels are coloured:
   green  = one pack replaces it
   yellow = two or more packs compete (highest OAR priority wins when its conditions pass)
   red    = it flip-flopped between packs this session
@@ -58,6 +54,7 @@ Session log: Documents\My Games\Skyrim Special Edition\SKSE\AnimationWatch\Sessi
   columns: time | graph (DefaultMale/DefaultFemale/FirstPerson) | event | clip | animation file
 Plugin log:  Documents\My Games\Skyrim Special Edition\SKSE\AnimationWatch.log
 
+One build folder only: build
 Output: build\Release\AnimationWatch.dll and .pdb
 
 Build (Developer Command Prompt for VS 2022), one line at a time:
@@ -90,25 +87,60 @@ Fixer #1 (flip-flop: interruptible off)
 Skyrim SE 1.5.97 support: the notification call now uses the SE address too (SE 52050 / AE 52933).
 Everything else already used addresses for both.
 
-## How AI was used
+1.8.7
+-----
+Viewing room: the clone was invisible (and its gear missing, and the camera stuck in third person)
+because the world was stood still the moment the clone was placed, before its fade-in, its gear
+and the camera switch (all on game time) had finished. The world now only stands still once the
+clone is dressed, fully faded in and the camera is first person in the room (or after 5 s, with
+a log line saying which part was missing). The clone is forced fully visible when its 3D loads,
+the camera switch is retried every 0.5 s until it takes, the gear is checked (and the model
+rebuilt if it did not attach), and the player's own third-person body is hidden in the room and
+shown again on leaving. The SKSE log has a "Clone: gate:" line for each step.
+Bigger buttons: "Back to all pictures" and "Leave the viewing room" (F1 page and the room's
+control panel) are now large orange buttons on their own line.
 
-AnimationWatch was made by tonycubed2 working together with Anthropic's Claude (an AI assistant). tonycubed2
-decided what the mod should do, set the requirements, built every DLL on his own PC and tested it in his own
-heavily modded game. Claude wrote the C++ source code to those requirements, checked how the game and Open
-Animation Replacer work against their own code, and fixed the build errors tonycubed2 reported back.
+1.8.8
+-----
+Free camera in the viewing room: watch the clone's animation from any angle, also while the world
+stands still. Turn it on with C in the room, the blue "Free camera" button in the room's control
+panel, or the "Free camera" button on the F1 Animation Dolls page (while you are in the room).
+  Mouse          look around (the room's control panel closes while the free camera is on, so
+                 the mouse turns the camera; "Invert mouse Y" is in the panel)
+  W / S          forward / back (where you look)
+  A / D          left / right
+  E / Q          up / down
+  Shift (held)   4x faster
+  Wheel, + / -   slower / faster (20 to 3000 units a second, starts at 200)
+  C              free camera off again (back to the first-person view; the panel comes back)
+  R or "Reset view"  free camera off, first person, facing the clone
+The room's own keys still work while it is on (none of them is shared): Space pause/play,
+Left/Right frame, Up/Down playback speed, L loop, Backspace restart, F1 pick another, Esc leave.
+The auto-move that C starts in the game is cancelled in the room.
+The free camera turns off by itself when you leave the room, the clone is removed, or a game is
+loaded; while F1 or another menu is open its keys and mouse are ignored.
+How: it uses the game's own free camera (as the console's tfc), but moves it itself with real
+time, because the game's own free camera moves on game time, which stands still in the room.
+Log: every line is now written to AnimationWatch.log at once (no need to quit the game first).
+"Free camera:" lines log on / off, the position now and then, and any error.
 
-## License
-
-Copyright (C) 2026 tonycubed2
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General
-Public License as published by the Free Software Foundation, either version 3 of the License, or (at your
-option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
-[LICENSE](LICENSE) (the GNU General Public License v3) for details.
-
-AnimationWatch links [CommonLibSSE NG](https://github.com/alandtse/CommonLibVR/tree/ng), licensed
-GPL-3.0-or-later WITH the Modding Exception AND the GPL-3.0 Linking Exception (with Corresponding Source).
-Because it links CommonLibSSE NG, AnimationWatch is released under the GPL-3.0-or-later, and its complete
-source code is in this repository. `src/SKSEMenuFramework.h` is the SKSE Menu Framework API header (MIT,
-see `src/SKSEMenuFramework_LICENSE.txt`), included unchanged so the source builds as is.
+1.8.9
+-----
+Free camera twice as fast: 400 units a second to start (40 to 6000).
+On-screen camera controls: while the free camera or the orbit view is on, a small panel at the
+bottom of the screen has big "<< Slower" / "Faster >>" buttons and a camera speed slider (each
+button press: 1.5x), plus "Orbit view (O)" / "Stop orbit", "Free camera off (C)", "Reset view (R)",
+"Hide controls" and "Invert mouse Y". The mouse wheel and + / - still change the speed too.
+With the panel shown the mouse is a cursor for it: hold the RIGHT mouse button to look around.
+"Hide controls" goes back to the 1.8.8 way (the mouse always looks); a right click shows them again.
+Orbit view: the camera circles the clone by itself (20 s a circle to start, at the distance the
+camera was, slightly above the chest, always looking at the clone), also while the world stands
+still. Start it with O in the room, the blue "Orbit view (O)" button in the room's panel, on the
+F1 page (while in the room) or on the camera panel. While it runs the camera panel also has
+"<< Orbit slower" / "Orbit faster >>", a seconds-a-circle slider, and Distance and Height sliders.
+Any keyboard key or a right click stops it (left clicks are for the panel; wheel and + / - only
+change the speed). Note the key you press also does its own job (Space still pauses, Esc still
+leaves the room). Started from the normal view it goes back to the normal first-person view;
+started from the free camera ("Orbit view" on the camera panel) it goes back to flying from
+where it stopped; "Fly from here" on the panel does that too. It turns off with the free camera
+(leaving the room, removing the clone, loading a game).

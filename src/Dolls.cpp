@@ -28,6 +28,9 @@
 // What really played is taken from AnimationWatch's own tracking.
 
 #include "Dolls.h"
+#include "Player.h"
+#include "Clone.h"
+#include "FreeCam.h"
 
 #include <Windows.h>
 
@@ -177,7 +180,7 @@ namespace Dolls
 				const auto name = Lower(p.filename().string());
 				if (it->is_directory(ec)) {
 					if (name.rfind("_variants_", 0) == 0) {
-						auto rel = Lower(fs::relative(p.parent_path(), a_root, ec).string());
+						auto rel = Lower(p.parent_path().lexically_relative(a_root).string());
 						rel = (rel == "." || rel.empty()) ? std::string() : rel + "\\";
 						a_out.insert(rel + name.substr(10) + ".hkx");
 						it.disable_recursion_pending();
@@ -185,7 +188,7 @@ namespace Dolls
 					continue;
 				}
 				if (p.extension().string().size() == 4 && Lower(p.extension().string()) == ".hkx") {
-					a_out.insert(Lower(fs::relative(p, a_root, ec).string()));
+					a_out.insert(Lower(p.lexically_relative(a_root).string()));
 				}
 			}
 		}
@@ -712,6 +715,55 @@ namespace Dolls
 		std::size_t g_renameSub = SIZE_MAX;  // DAR submod waiting for "Yes, rename"
 		int         g_renameTo = 0;
 
+		// "meshes\\...\\x.hkx" (relative to Data) of the file a pack (or the game, a_sub == nullptr) provides for a slot
+		std::string DataPathOf(const SubMod* a_sub, const Slot& a_slot)
+		{
+			const auto      rel = fs::path(a_slot.key.substr(2));
+			std::error_code ec;
+			fs::path        file;
+			if (!a_sub) {
+				file = fs::path("data") / "meshes" / "actors" / "character" / (a_slot.firstPerson ? "_1stperson" : "") / "animations" / rel;
+			} else {
+				file = a_sub->dir / rel;
+				if (!fs::exists(file, ec)) {
+					// a slot made from a _variants_<name> folder: play its first file
+					const auto variants = a_sub->dir / rel.parent_path() / ("_variants_" + rel.stem().string());
+					for (const auto& f : fs::directory_iterator(variants, ec)) {
+						if (f.is_regular_file(ec) && Lower(f.path().extension().string()) == ".hkx") {
+							file = f.path();
+							break;
+						}
+					}
+				}
+			}
+			auto text = file.lexically_normal().string();
+			std::ranges::replace(text, '/', '\\');
+			// the database wants the path from "meshes\\"
+			if (const auto at = Lower(text).find("meshes\\"); at != std::string::npos) {
+				text = text.substr(at);
+			}
+			return text;
+		}
+
+		void CloseF1()
+		{
+			if (auto* window = SKSEMenuFramework::GetMainWindow()) {
+				window->IsOpen = false;
+			}
+		}
+
+		void PlayOnPlayer(const SubMod* a_sub, const Slot& a_slot)
+		{
+			if (a_slot.firstPerson) {
+				g_result = "First-person animations cannot be played on the clone yet (third person only).";
+				return;
+			}
+			const auto label = a_sub ? std::format("{} ({})", a_slot.file, FromText(*a_sub)) : std::format("{} (game's own)", a_slot.file);
+			AnimPlayer::Play(DataPathOf(a_sub, a_slot), label);
+			g_result = std::format("The clone plays {}: watch it with the menu closed (it stands in front of you).", label);
+			CloseF1();
+		}
+
 		void RenderPopup()
 		{
 			using namespace ImGuiMCP;
@@ -733,6 +785,9 @@ namespace Dolls
 			Separator();
 			if (ranked.empty()) {
 				TextUnformatted("No animation pack replaces this for the gear shown: the game's own animation plays.");
+				if (!slot.firstPerson && SmallButton("Play the game's own")) {
+					PlayOnPlayer(nullptr, slot);
+				}
 			}
 			int maxOther = INT_MIN;
 			for (const auto i : ranked) {
@@ -743,6 +798,12 @@ namespace Dolls
 				PushID(static_cast<int>(ranked[r]));
 				if (r == 0) {
 					PushStyleColor(ImGuiCol_Text, ImVec4{ 0.47f, 0.80f, 1.0f, 1.0f });  // the winner: light sky blue
+				}
+				if (!slot.firstPerson) {
+					if (SmallButton("Play")) {
+						PlayOnPlayer(&s, slot);
+					}
+					SameLine();
 				}
 				TextUnformatted(std::format("{} {}   priority {}{}   [{}]", r == 0 ? "WINS:" : "     ", FromText(s), s.priority,
 									s.changed ? std::format(" (was {}, changed by AnimationWatch)", s.original) : std::string(), GearText(s))
@@ -942,23 +1003,122 @@ namespace Dolls
 			EndChild();
 		}
 
+		// play / pause, restart, loop, speed, time slider and frame steps for the animation the player plays
+		// 1.8.7: big orange buttons for the ways back, so they are easy to find
+		bool BigBackButton(const char* a_label, float a_width = 300.0f, bool a_blue = false)
+		{
+			using namespace ImGuiMCP;
+			PushStyleColor(ImGuiCol_Button, a_blue ? ImVec4{ 0.10f, 0.45f, 0.85f, 1.0f } : ImVec4{ 0.85f, 0.30f, 0.05f, 1.0f });
+			PushStyleColor(ImGuiCol_ButtonHovered, a_blue ? ImVec4{ 0.20f, 0.60f, 1.00f, 1.0f } : ImVec4{ 1.00f, 0.45f, 0.10f, 1.0f });
+			PushStyleColor(ImGuiCol_ButtonActive, a_blue ? ImVec4{ 0.05f, 0.30f, 0.65f, 1.0f } : ImVec4{ 0.70f, 0.20f, 0.00f, 1.0f });
+			PushStyleColor(ImGuiCol_Text, ImVec4{ 1.0f, 1.0f, 1.0f, 1.0f });
+			const bool pressed = Button(a_label, ImVec2{ a_width, 44.0f });
+			PopStyleColor(4);
+			return pressed;
+		}
+
+		void RenderPlayerControls()
+		{
+			using namespace ImGuiMCP;
+			TextUnformatted(std::format("Clone: {}  |  {}", Clone::Status(), AnimPlayer::Status()).c_str());
+			if (Clone::Get() || Clone::InViewingRoom()) {
+				if (BigBackButton("<<  Leave the viewing room")) {
+					AnimPlayer::Stop();
+					Clone::RequestRemove();
+					CloseF1();
+				}
+				if (Clone::InViewingRoom()) {
+					SameLine();
+					if (BigBackButton(FreeCam::IsOn() ? "Free camera: ON (C)" : "Free camera (C)", 220.0f, true)) {
+						FreeCam::RequestToggle();
+						CloseF1();
+					}
+					SameLine();
+					if (BigBackButton(FreeCam::IsOrbiting() ? "Orbit view: ON (O)" : "Orbit view (O)", 200.0f, true)) {
+						FreeCam::RequestOrbit();
+						CloseF1();
+					}
+					SameLine();
+					if (SmallButton("Reset view")) {
+						FreeCam::RequestReset();
+						CloseF1();
+					}
+				}
+				if (Clone::Get()) {
+					SameLine();
+					if (SmallButton("Move clone in front of me")) {
+						Clone::RequestMoveToFront();
+					}
+				}
+			}
+			const bool busy = AnimPlayer::IsBusy();
+			const bool paused = AnimPlayer::IsPaused();
+			if (busy) {
+				SameLine();
+				if (SmallButton(paused ? "Play" : "Pause")) {
+					AnimPlayer::SetPaused(!paused);
+				}
+				SameLine();
+				if (SmallButton("Restart")) {
+					AnimPlayer::Restart();
+				}
+				SameLine();
+				if (SmallButton("Stop")) {
+					AnimPlayer::Stop();
+				}
+				SameLine();
+				if (SmallButton("< frame")) {
+					AnimPlayer::StepFrames(-1);
+				}
+				SameLine();
+				if (SmallButton("frame >")) {
+					AnimPlayer::StepFrames(1);
+				}
+			}
+			bool loop = AnimPlayer::Loop();
+			if (Checkbox("Loop", &loop)) {
+				AnimPlayer::SetLoop(loop);
+			}
+			SameLine();
+			float speed = AnimPlayer::Speed();
+			SetNextItemWidth(220.0f);
+			if (SliderFloat("Speed", &speed, 0.05f, 3.0f, "%.2fx")) {
+				AnimPlayer::SetSpeed(speed);
+			}
+			for (const float preset : { 0.1f, 0.25f, 0.5f, 1.0f, 2.0f }) {
+				SameLine();
+				if (SmallButton(std::format("{}x", preset).c_str())) {
+					AnimPlayer::SetSpeed(preset);
+				}
+			}
+			if (busy && AnimPlayer::Duration() > 0.0f) {
+				float t = AnimPlayer::Time();
+				SetNextItemWidth(-1.0f);
+				if (SliderFloat("##animtime", &t, 0.0f, AnimPlayer::Duration(), "%.2f s")) {
+					AnimPlayer::Seek(t);
+				}
+			}
+			TextDisabled("%s", "Left click an animation: you go to a private viewing room and a copy of you (the clone) plays it in front of you. The game stands still meanwhile. In the room the controls are keys shown on screen (Space, arrows, L, Backspace); F1 there picks another animation. \"Leave the viewing room\" (or Esc in the room) removes the clone, takes you back where you were and opens this menu again. The menu itself pauses everything: close it to watch.");
+		}
+
 		// one picture, large in the middle, with its animations around it pointing at it
 		void RenderDetail(int a_activity)
 		{
 			using namespace ImGuiMCP;
-			if (Button("<  Back to all pictures")) {
+			if (BigBackButton("<<  Back to all pictures")) {
 				g_view = -1;
 				return;
 			}
+			Spacing();
 			auto rows = RowsOf(a_activity);
 			int  counts[4]{};
 			for (const auto& r : rows) {
 				++counts[static_cast<int>(r.state)];
 			}
-			SameLine();
 			TextUnformatted(std::format("{}:  {} animations  -  {} green, {} yellow, {} red, {} game's own", kActivities[a_activity], rows.size(), counts[1], counts[2],
 				counts[3], counts[0])
 								.c_str());
+			RenderPlayerControls();
 			const auto avail = GetContentRegionAvail();
 			if (!BeginChild("doll_detail", avail)) {
 				EndChild();
@@ -1049,9 +1209,11 @@ namespace Dolls
 					ImDrawListManager::AddText(dl, ImVec2{ p0.x + 13.0f, p0.y + 7.0f + lineH }, kBrownSoft, from1.c_str());
 					ImDrawListManager::PopClipRect(dl);
 					if (hovered) {
-						SetTooltip("%s\n%s\n%s\nClick to see the competing packs and pick the winner", r->slot->file.c_str(), from1.c_str(), r->slot->key.substr(2).c_str());
+						SetTooltip("%s\n%s\n%s\nLeft click: the clone plays it.  Right click: the competing packs, pick the winner", r->slot->file.c_str(), from1.c_str(), r->slot->key.substr(2).c_str());
 					}
 					if (clicked) {
+						PlayOnPlayer(r->ranked.empty() ? nullptr : &g_subMods[r->ranked[0]], *r->slot);
+					} else if (hovered && IsMouseClicked(1)) {
 						g_popupSlot = r->slot->key;
 						g_renameSub = SIZE_MAX;
 						OpenPopup("doll_slot");

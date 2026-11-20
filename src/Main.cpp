@@ -1,4 +1,4 @@
-// AnimationWatch 1.4.0
+// AnimationWatch 1.8.9
 // Built against CommonLibSSE-NG for Skyrim AE 1.6.1170 (Address Library).
 //
 // Watches every animation clip the player's behavior graphs start (third person and first person),
@@ -19,6 +19,11 @@
 // run on bumpy ground), a WARNING line is written to the session log and shown on screen. That pattern
 // restarts the animation mid-step and looks like a stutter or limp.
 //
+// 1.8.0: the viewing room is its own cell in AnimationWatch.esp (ESL, made by tools\make_room.py); CTest is the fallback.
+// 1.7.0: the clone plays in a private viewing room (cell CTest); the player goes there and comes back (Clone.cpp).
+// 1.6.0: a clone of the player (Clone.cpp) plays the animations instead of the player; playback controls (1.5.1).
+// 1.5.0: animation player (Player.cpp): on the dolls page, left click an animation and the player plays it (the file
+// decoded by the game's own Havok code, 3 times); right click opens the competing packs, which each have a Play button.
 // 1.4.0: the dolls page shows pictures (Data\Interface\AnimationWatch\*.png); click one to see its animations around it,
 // each pointing at the picture and naming its pack. Old DAR folders can be renamed for the player ("Rename it for me").
 // 1.3.0: animation dolls (Dolls.cpp): F1 > Animation Watch > Animation Dolls shows, per activity and gear, which
@@ -46,9 +51,12 @@
 
 #include "SKSEMenuFramework.h"
 #include "Dolls.h"
+#include "Player.h"
+#include "Clone.h"
+#include "FreeCam.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 4, 0, 0 },
+	.Version = REL::Version{ 1, 8, 6, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -108,7 +116,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.4.0 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 1.8.9 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -663,8 +671,16 @@ namespace
 
 	void OnMessage(SKSE::MessagingInterface::Message* a_msg)
 	{
+		if (a_msg->type == SKSE::MessagingInterface::kPostLoadGame) {
+			AnimPlayer::OnGameLoad();
+			FreeCam::OnGameLoad();
+			Clone::OnGameLoad();
+		}
 		if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) {
 			InstallHooks();
+			AnimPlayer::Install();
+			FreeCam::Install();
+			Clone::Install();
 			Dolls::StartScan();
 			if (SKSEMenuFramework::IsInstalled()) {
 				SKSEMenuFramework::SetSection("Animation Watch");
@@ -681,9 +697,13 @@ namespace
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
 	SKSE::Init(a_skse);
-	logger::info("AnimationWatch 1.4.0 loading; game runtime {}", REL::Module::get().version().string());
+	if (auto log = spdlog::default_logger()) {
+		log->flush_on(spdlog::level::trace);  // 1.8.8: every line is on disk at once, no need to quit the game for the log
+	}
+	logger::info("AnimationWatch 1.8.9 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
+	Clone::InstallSerialization();
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 	return true;
 }

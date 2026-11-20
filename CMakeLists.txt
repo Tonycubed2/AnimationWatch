@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(AnimationWatch VERSION 1.4.0 LANGUAGES CXX)
+project(AnimationWatch VERSION 1.8.9 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -28,6 +28,9 @@ find_package(nlohmann_json CONFIG REQUIRED)
 add_library(${PROJECT_NAME} SHARED
 	src/Main.cpp
 	src/Dolls.cpp
+	src/Player.cpp
+	src/Clone.cpp
+	src/FreeCam.cpp
 	src/PCH.h
 )
 
