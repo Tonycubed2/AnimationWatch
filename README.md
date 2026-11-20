@@ -144,3 +144,19 @@ leaves the room). Started from the normal view it goes back to the normal first-
 started from the free camera ("Orbit view" on the camera panel) it goes back to flying from
 where it stopped; "Fly from here" on the panel does that too. It turns off with the free camera
 (leaving the room, removing the clone, loading a game).
+
+1.9.0
+-----
+Competing versions in the viewing room: when the animation the clone plays is replaced by two or
+more animation packs, a RED dropdown "Competing versions (N) of <animation>" shows in the room's
+control panel, on the camera panel (free camera / orbit view) and on the F1 Animation Dolls page
+while you are in the room. It lists every pack's version (same names as the doll labels:
+"Mod: OAR mod / submod" or "Mod (DAR folder N)"), highest priority first; the one that wins is
+marked "(winner)" and is selected when you first play the animation. Pick another and the clone
+plays that pack's own file at once, so you can try them one by one; pick the winner to go back.
+Pause, speed, loop and frame steps keep working. This is only a preview: nothing on disk changes.
+"Make this the winner" next to it does what "Make winner" does on the page (raises that OAR
+submod's priority; restart the game for OAR to use it). Old DAR folders are renamed from the page.
+Only packs that apply to the gear filter on the Dolls page are listed. A version limited by its
+pack's conditions is played anyway in the preview (in the game it only plays when they pass).
+Every pick is written to the log ("Viewing room: competing version picked ...").

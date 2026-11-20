@@ -7,5 +7,6 @@ namespace Dolls
 	void StartScan();                                                                       // reads every OAR / DAR pack on disk (background thread)
 	void OnPlayed(const std::string& a_graph, const std::string& a_path, const std::string& a_source);  // an animation started on the player
 	void MarkFlipFlop(const std::string& a_graph, const std::string& a_path);              // that slot flip-flopped
-	void __stdcall Render();                                                                // F1 page
+	void __stdcall Render();
+	void RenderCompetingInRoom();  // 1.9.0: the red competing-versions dropdown (room panel / camera panel), render thread                                                                // F1 page
 }

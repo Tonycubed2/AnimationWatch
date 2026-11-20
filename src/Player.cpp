@@ -37,6 +37,7 @@
 #include "Player.h"
 
 #include "Clone.h"
+#include "Dolls.h"
 #include "FreeCam.h"
 #include "SKSEMenuFramework.h"
 
@@ -816,6 +817,7 @@ namespace AnimPlayer
 					title = g_status;
 				}
 				TextUnformatted(title.c_str());
+				Dolls::RenderCompetingInRoom();
 				const bool playing = g_phase == Phase::kPlaying;
 				if (Button(g_paused ? "  Play  " : " Pause  ")) {
 					g_paused = !g_paused;
@@ -935,6 +937,7 @@ namespace AnimPlayer
 			if (ImGuiMCP::Begin("AnimationWatch camera", nullptr,
 					ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse)) {
 				FreeCam::RenderControls();
+				Dolls::RenderCompetingInRoom();
 			}
 			ImGuiMCP::End();
 		}

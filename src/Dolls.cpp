@@ -752,7 +752,11 @@ namespace Dolls
 			}
 		}
 
-		void PlayOnPlayer(const SubMod* a_sub, const Slot& a_slot)
+		// 1.9.0: the slot the clone plays and which pack's file (SIZE_MAX: the game's own), for the competing-versions list
+		std::string g_playingSlot;
+		std::size_t g_playingSub = SIZE_MAX;
+
+		void PlayOnPlayer(const SubMod* a_sub, const Slot& a_slot, bool a_closeF1 = true)
 		{
 			if (a_slot.firstPerson) {
 				g_result = "First-person animations cannot be played on the clone yet (third person only).";
@@ -760,8 +764,12 @@ namespace Dolls
 			}
 			const auto label = a_sub ? std::format("{} ({})", a_slot.file, FromText(*a_sub)) : std::format("{} (game's own)", a_slot.file);
 			AnimPlayer::Play(DataPathOf(a_sub, a_slot), label);
+			g_playingSlot = a_slot.key;
+			g_playingSub = a_sub ? static_cast<std::size_t>(a_sub - g_subMods.data()) : SIZE_MAX;
 			g_result = std::format("The clone plays {}: watch it with the menu closed (it stands in front of you).", label);
-			CloseF1();
+			if (a_closeF1) {
+				CloseF1();
+			}
 		}
 
 		void RenderPopup()
@@ -898,6 +906,103 @@ namespace Dolls
 				CloseCurrentPopup();
 			}
 			EndPopup();
+		}
+
+		// ---------------------------------------------------------------- 1.9.0: competing versions in the viewing room
+		// When the animation the clone plays has two or more pack files for it (the same ranking as the doll labels:
+		// the packs that apply for the gear filter, highest priority first, so the first is the winner), a red
+		// dropdown lists them. Picking one plays that pack's own .hkx file on the clone (a preview: nothing on disk
+		// changes). "Make this the winner" is the page's own "Make winner" (OAR priority, restart needed).
+		std::string g_competeResult;
+
+		void RenderCompeting(bool a_inF1)
+		{
+			using namespace ImGuiMCP;
+			if (!g_scanned || g_playingSlot.empty() || !Clone::InViewingRoom()) {
+				return;
+			}
+			const auto it = g_slots.find(g_playingSlot);
+			if (it == g_slots.end() || it->second.firstPerson) {
+				return;
+			}
+			const auto& slot = it->second;
+			const auto  ranked = Ranked(slot);
+			if (ranked.size() < 2) {
+				return;
+			}
+			std::size_t shown = 0;  // the one playing now; the winner if it is not in the list (the gear filter changed)
+			for (std::size_t r = 0; r < ranked.size(); ++r) {
+				if (ranked[r] == g_playingSub) {
+					shown = r;
+				}
+			}
+			auto nameOf = [&](std::size_t r) {
+				return std::format("{}{}", FromText(g_subMods[ranked[r]]), r == 0 ? "   (winner)" : "");
+			};
+			PushID(a_inF1 ? "compete_f1" : "compete_room");
+			TextColored(ImVec4{ 1.0f, 0.35f, 0.30f, 1.0f }, "Competing versions (%d) of %s:", static_cast<int>(ranked.size()), slot.file.c_str());
+			SameLine();
+			PushStyleColor(ImGuiCol_FrameBg, ImVec4{ 0.55f, 0.06f, 0.06f, 1.0f });
+			PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4{ 0.72f, 0.10f, 0.10f, 1.0f });
+			PushStyleColor(ImGuiCol_FrameBgActive, ImVec4{ 0.82f, 0.14f, 0.14f, 1.0f });
+			PushStyleColor(ImGuiCol_Button, ImVec4{ 0.80f, 0.12f, 0.12f, 1.0f });
+			PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.95f, 0.20f, 0.20f, 1.0f });
+			PushStyleColor(ImGuiCol_Border, ImVec4{ 1.0f, 0.25f, 0.25f, 1.0f });
+			PushStyleColor(ImGuiCol_PopupBg, ImVec4{ 0.20f, 0.03f, 0.03f, 1.0f });
+			PushStyleColor(ImGuiCol_Header, ImVec4{ 0.75f, 0.12f, 0.12f, 1.0f });
+			PushStyleColor(ImGuiCol_HeaderHovered, ImVec4{ 0.90f, 0.20f, 0.20f, 1.0f });
+			PushStyleColor(ImGuiCol_Text, ImVec4{ 1.0f, 1.0f, 1.0f, 1.0f });
+			PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+			SetNextItemWidth(460.0f);
+			const auto preview = nameOf(shown);
+			if (BeginCombo("##competing", preview.c_str())) {
+				for (std::size_t r = 0; r < ranked.size(); ++r) {
+					PushID(static_cast<int>(r));
+					const bool selected = r == shown;
+					if (Selectable(nameOf(r).c_str(), selected) && !selected) {
+						auto& s = g_subMods[ranked[r]];
+						const auto path = DataPathOf(&s, slot);
+						logger::info("Viewing room: competing version picked for {}: {} ({} of {}{}), file {}", slot.file, FromText(s), r + 1, ranked.size(),
+							r == 0 ? ", the winner" : "", path);
+						PlayOnPlayer(&s, slot, false);
+						g_competeResult.clear();
+					}
+					if (selected) {
+						SetItemDefaultFocus();
+					}
+					PopID();
+				}
+				EndCombo();
+			}
+			PopStyleVar();
+			PopStyleColor(10);
+			// make the one shown the winner: the page's own Make winner (OAR only; old DAR folders are renamed on the page)
+			if (shown != 0) {
+				auto& s = g_subMods[ranked[shown]];
+				SameLine();
+				if (s.legacy) {
+					TextDisabled("%s", "(old DAR folder: use the animation's list on the page to make it win)");
+				} else if (SmallButton("Make this the winner")) {
+					int top = INT_MIN;
+					for (const auto k : ranked) {
+						if (k != ranked[shown]) {
+							top = std::max(top, g_subMods[k].priority);
+						}
+					}
+					g_competeResult = SetPriority(s, top + 1);
+					if (g_competeResult.empty()) {
+						g_competeResult = std::format("{} / {} now wins {} (priority {}). Restart the game for OAR to use it.", s.mod, s.name, slot.file, s.priority);
+					}
+					logger::info("Viewing room: make winner {} for {}: {}", FromText(s), slot.file, g_competeResult);
+				}
+			}
+			if (!g_competeResult.empty()) {
+				TextWrapped("%s", g_competeResult.c_str());
+			}
+			if (shown != 0 && (g_subMods[ranked[shown]].gear != 0 || g_subMods[ranked[shown]].otherConditions)) {
+				TextDisabled("%s", "This version has conditions in its pack: the preview plays it anyway, in the game it only plays when they pass.");
+			}
+			PopID();
 		}
 
 		// ---------------------------------------------------------------- the two views
@@ -1051,6 +1156,7 @@ namespace Dolls
 					}
 				}
 			}
+			RenderCompeting(true);
 			const bool busy = AnimPlayer::IsBusy();
 			const bool paused = AnimPlayer::IsPaused();
 			if (busy) {
@@ -1257,6 +1363,14 @@ namespace Dolls
 		const auto key = KeyOfPath(a_graph, a_path);
 		std::scoped_lock l{ g_lock };
 		g_flipFlopped.insert(key);
+	}
+
+	void RenderCompetingInRoom()
+	{
+		std::unique_lock l{ g_lock, std::try_to_lock };  // never wait for the pack scan in the room's windows
+		if (l.owns_lock()) {
+			RenderCompeting(false);
+		}
 	}
 
 	void __stdcall Render()
