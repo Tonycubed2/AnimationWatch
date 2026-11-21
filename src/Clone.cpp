@@ -165,7 +165,7 @@ namespace Clone
 
 		void MoveToCell(RE::TESObjectREFR* a_ref, RE::TESObjectCELL* a_cell, const RE::NiPoint3& a_pos, const RE::NiPoint3& a_rot)
 		{
-			static const auto fn = reinterpret_cast<MoveToImpl_t>(REL::ID(56626).address());  // TESObjectREFR::MoveTo_Impl (AE)
+			static const auto fn = reinterpret_cast<MoveToImpl_t>(REL::Relocation<std::uintptr_t>{ RELOCATION_ID(56227, 56626) }.address());  // TESObjectREFR::MoveTo_Impl (SE 56227 / AE 56626)
 			fn(a_ref, RE::ObjectRefHandle{}, a_cell, nullptr, a_pos, a_rot);
 		}
 

@@ -113,13 +113,23 @@ namespace AnimPlayer
 		using Queue_t = std::int32_t (*)(void*, const ID*);
 		using Sample_t = void (*)(const void*, float, void*, float*, void*);
 
-		std::uintptr_t Addr(std::uint64_t a_id) { return REL::ID(a_id).address(); }
+		// 1.9.3: one Address Library id per runtime (SE 1.5.x, AE 1.6.x / 1.7.x). The AE ids exist with an address in
+		// every AE database (checked in the offsets of 1.6.318, 1.6.353, 1.6.1170, 1.7.99 and 1.7.104). SE ids: the
+		// ones CommonLibSSE-NG pairs with them (ID::GenerateFromPath 68635, AnimationFileManagerSingleton 520994) and
+		// the SE<->AE address match of the Address Library tools (63076, 516410). 0: not known for that runtime.
+		std::uintptr_t Addr(std::uint64_t a_se, std::uint64_t a_ae)
+		{
+			const auto id = REL::Module::IsAE() ? a_ae : a_se;
+			return id ? REL::ID(id).address() : 0;
+		}
 
-		void* Database() { return P(Q(P(Addr(402581)), 0)); }
+		constexpr std::uint64_t kFindSE = 0;  // BSResource::EntryDB<BShkbHkxDB::DBTraits>::Find on 1.5.97: not verified yet
+
+		void* Database() { return P(Q(P(Addr(516410, 402581)), 0)); }
 
 		bool MakeId(const char* a_path, ID& a_id)
 		{
-			const auto fn = reinterpret_cast<GenId_t>(Addr(69979));
+			const auto fn = reinterpret_cast<GenId_t>(Addr(68635, 69979));
 			__try {
 				fn(&a_id, a_path);
 				return true;
@@ -130,7 +140,7 @@ namespace AnimPlayer
 
 		bool Find(const ID& a_id, void*& a_entry)
 		{
-			const auto fn = reinterpret_cast<Find_t>(Addr(64039));
+			const auto fn = reinterpret_cast<Find_t>(Addr(kFindSE, 64039));
 			void*      db = Database();
 			a_entry = nullptr;
 			if (!db) {
@@ -146,7 +156,7 @@ namespace AnimPlayer
 
 		bool QueueRaw(void* a_manager, const ID* a_id, std::int32_t& a_result)
 		{
-			const auto fn = reinterpret_cast<Queue_t>(Addr(63989));
+			const auto fn = reinterpret_cast<Queue_t>(Addr(63076, 63989));
 			__try {
 				a_result = fn(a_manager, a_id);
 				return true;
@@ -984,8 +994,9 @@ namespace AnimPlayer
 			logger::info("Camera controls window {}", g_camWindow ? "registered" : "NOT registered");
 			logger::info("Viewing room control panel {}", g_roomWindow ? "registered" : "NOT registered");
 		}
-		if (REL::Module::get().version() != REL::Version{ 1, 6, 1170, 0 }) {
-			SetStatus("the animation player is written for Skyrim 1.6.1170 and is off on this version");
+		// 1.9.3: every AE version (1.6.x and 1.7.x), not only 1.6.1170. SE 1.5.97 waits for one address (kFindSE).
+		if (REL::Module::IsVR() || (!REL::Module::IsAE() && kFindSE == 0)) {
+			SetStatus(std::format("the animation player does not support Skyrim {} yet", REL::Module::get().version().string()));
 			return;
 		}
 		REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_PlayerCharacter[0] };

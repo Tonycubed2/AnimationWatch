@@ -1,4 +1,5 @@
-// AnimationWatch 1.9.2
+// AnimationWatch 1.9.3
+// 1.9.3: the animation player and viewing room work on every AE game version (1.6.x and 1.7.x), not only 1.6.1170.
 // 1.9.2: Animation Dolls: new "Kill moves" tile (paired animations); attacks done while running, sprinting, walking or
 // sneaking now show on their weapon's tile (One-handed, Two-handed, Bow, Unarmed, Spellcasting) instead of the movement tile.
 // 1.9.1: switching off "Show flip-flop warnings" now also stops the FIX AVAILABLE pop-up (it ignored the setting);
@@ -60,7 +61,7 @@
 #include "FreeCam.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 9, 2, 0 },
+	.Version = REL::Version{ 1, 9, 3, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -120,7 +121,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.9.2 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 1.9.3 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -704,7 +705,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	if (auto log = spdlog::default_logger()) {
 		log->flush_on(spdlog::level::trace);  // 1.8.8: every line is on disk at once, no need to quit the game for the log
 	}
-	logger::info("AnimationWatch 1.9.2 loading; game runtime {}", REL::Module::get().version().string());
+	logger::info("AnimationWatch 1.9.3 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
 	Clone::InstallSerialization();
