@@ -1,99 +1,100 @@
 [size=5][b]AnimationWatch[/b][/size]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[i]See which animation your character is really playing, and catch the packs that fight over it[/i]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[url=https://imageshack.com/i/pnrdoXX5j][img]https://imagizer.imageshack.com/v2/1024x768q70/923/rdoXX5.jpg[/img][/url]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;New feature for mod, view any animation loaded in the game.  First of its kind.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[center][youtube]7M7cnh_Adm0[/youtube][/center]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]Why[/b][/size]
-<br />&lt;br /&gt;With big Open Animation Replacer / DAR setups, two animation packs can both claim the same animation. When that happens your run, walk or idle keeps switching between the two, and the animation restarts mid-step: stutters, a limp-like loop, or a run that feels uneven. Nothing in the game tells you which packs are doing it. AnimationWatch does.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]What it does[/b][/size]
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*][b]Watches every animation[/b] the player's behavior graphs start (third person and first person), [b]after[/b] OAR/DAR chose their replacement, so you see the file that is really playing and which mod and submod it came from[/*]
-<br />&lt;br /&gt;[*]Also logs loop restarts (and whether a loop switched to another variant file) and paired animations such as kill moves[/*]
-<br />&lt;br /&gt;[*][b]On-screen notices[/b] (optional), e.g. [i]Anim: mt_runforward.hkx [OAR: CATA / Light Armor][/i][/*]
-<br />&lt;br /&gt;[*][b]Session log file[/b] you can attach to a bug report[/*]
-<br />&lt;br /&gt;[/list]
-<br />&lt;br /&gt;[size=4][b]Animation Dolls (F1 &gt; Animation Watch &gt; Animation Dolls)[/b][/size]
-<br />&lt;br /&gt;A page of pictures, one per activity: Running, Sprinting, Walking, Sneaking, Jumping, Swimming, One-handed, Two-handed, Bow, Spellcasting, Unarmed, Kill moves, Horse, Idle and Other. Click a picture to see every animation of that activity around it, each label pointing at the body or the weapon and naming the pack (mod / submod) it comes from.
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*][color=#7CFC00]Green[/color]: one pack provides it[/*]
-<br />&lt;br /&gt;[*][color=#FFD700]Yellow[/color]: two or more packs compete for it[/*]
-<br />&lt;br /&gt;[*][color=#FF4040]Red[/color]: it flip-flopped between packs this session (switching mid-step)[/*]
-<br />&lt;br /&gt;[*]Grey: no pack replaces it (the game's own)[/*]
-<br />&lt;br /&gt;[/list]Attacks show on their weapon's picture, also when done while running, sprinting, walking or sneaking. Kill moves and other paired animations have their own picture.
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*][b]Make winner[/b] / [b]Make whole mod win[/b] raise that pack's OAR priority by writing OAR's own user.json for the submod, so you never have to dig through the OAR menu. [b]Undo[/b] puts the original priority back. Restart the game for OAR to use it[/*]
-<br />&lt;br /&gt;[*]Old DAR folders: [b]Rename it for me[/b] renames the folder for you (under MO2 the real folder inside the MO2 mod)[/*]
-<br />&lt;br /&gt;[*][b]Gear[/b] filter: all gear, light armor, heavy armor, clothing[/*]
-<br />&lt;br /&gt;[/list]
-<br />&lt;br /&gt;[size=4][b]Animation Viewing Room[/b][/size]
-<br />&lt;br /&gt;Click an animation on the Dolls page and a clone of your character, with your gear, plays it in a private viewing room (a small ESL cell). The world is paused while you are in the room, and only the clone is there.
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*]Play, Restart, Stop, Loop, speed, pause and frame-by-frame steps, all as buttons[/*]
-<br />&lt;br /&gt;[*][b]Competing versions[/b]: when two or more packs replace the animation, a red dropdown lists every pack's version (winner marked) so you can play them one by one on the clone; [b]Make this the winner[/b] next to it[/*]
-<br />&lt;br /&gt;[*]Free camera, orbit view (the camera circles the clone) and an on-screen camera speed panel[/*]
-<br />&lt;br /&gt;[*][b]Leave the viewing room[/b] (or Esc) takes you back to where you were[/*]
-<br />&lt;br /&gt;[/list]
-<br />&lt;br /&gt;[size=4][b]Flip-flop warning[/b][/size]
-<br />&lt;br /&gt;When the same animation slot (for example your run) switches to a different mod's file more than twice within 2 seconds, AnimationWatch writes a WARNING to the log and tells you, naming the packs:
-<br />&lt;br /&gt;[i]Anim flip-flop: MT_RunForward switched 3 times in 1.2 s: OAR: CATA / Light Armor &lt;-&gt; OAR: CLAMBER / Upwards Run[/i]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]Fixer catalog[/b][/size]
-<br />&lt;br /&gt;When a flip-flop warning fires, every OAR submod involved that is set to "interruptible" (it lets another animation cut in mid-step) shows up in [b]F1 &gt; Animation Watch &gt; Fixes[/b], and the game's message box tells you a fix is available (unless you switched off the warnings and pop-ups in the F1 menu).
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*][b]Apply[/b] writes OAR's own per-user settings file (user.json) for that submod, with "interruptible" set to false, so the animation can no longer be cut off mid-step. Under MO2 the file goes into overwrite; nothing in the original mod is changed[/*]
-<br />&lt;br /&gt;[*][b]Undo[/b] removes it again, or restores the user.json that was there before[/*]
-<br />&lt;br /&gt;[*]Takes effect after you restart the game (OAR reads user.json at startup)[/*]
-<br />&lt;br /&gt;[/list]This is fixer #1. Submods that are already non-interruptible are not offered, because their switches are fresh animation starts, not mid-step cuts, and this fix would change nothing. More fixers will be added over time.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]F1 menu (Animation Watch)[/b][/size]
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*]Show animation names on screen (on/off)[/*]
-<br />&lt;br /&gt;[*]Write session log file (on/off)[/*]
-<br />&lt;br /&gt;[*]Show flip-flop warnings and fix pop-ups on screen (on/off)[/*]
-<br />&lt;br /&gt;[*]Number of flip-flop warnings this session, and the last animation[/*]
-<br />&lt;br /&gt;[*]Fixes, with Apply and Undo[/*]
-<br />&lt;br /&gt;[*]Animation Dolls and the Animation Viewing Room[/*]
-<br />&lt;br /&gt;[/list]Settings are saved to Data\SKSE\Plugins\AnimationWatch.ini.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]Files[/b][/size]
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*]Session log: Documents\My Games\Skyrim Special Edition\SKSE\AnimationWatch\Session_&lt;date&gt;_&lt;time&gt;.log[/*]
-<br />&lt;br /&gt;[*]Plugin log: Documents\My Games\Skyrim Special Edition\SKSE\AnimationWatch.log[/*]
-<br />&lt;br /&gt;[/list]
-<br />&lt;br /&gt;[size=4][b]Requirements[/b][/size]
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*]Skyrim SE 1.5.97 or AE[/*]
-<br />&lt;br /&gt;[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/30379]SKSE64[/url][/*]
-<br />&lt;br /&gt;[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url][/*]
-<br />&lt;br /&gt;[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url] (optional, needed for the F1 menu, the Fixes, the Animation Dolls and the viewing room)[/*]
-<br />&lt;br /&gt;[/list]
-<br />&lt;br /&gt;[size=4][b]Honest limits[/b][/size]
-<br />&lt;br /&gt;[list]
-<br />&lt;br /&gt;[*]It watches the player only, not NPCs[/*]
-<br />&lt;br /&gt;[*]Playing animations on the clone in the viewing room only works on Skyrim 1.6.1170; on other game versions the Dolls page works, but the animation player is switched off[/*]
-<br />&lt;br /&gt;[*]It has been tested in my own heavily modded game; please report setups where it misreads something[/*]
-<br />&lt;br /&gt;[*]The fixer catalog has one fixer so far (interruptible off)[/*]
-<br />&lt;br /&gt;[/list]
-<br />&lt;br /&gt;[size=4][b]Installation[/b][/size]
-<br />&lt;br /&gt;Install with your mod manager: SKSE\Plugins\AnimationWatch.dll, AnimationWatch.esp (ESL-flagged, holds only the viewing room cell) and the pictures in Interface\AnimationWatch. It writes OAR's own user.json only when you press Apply, Make winner or Make whole mod win.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]Source code[/b][/size]
-<br />&lt;br /&gt;[url=https://github.com/Tonycubed2/AnimationWatch]github.com/Tonycubed2/AnimationWatch[/url]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]How AI was used[/b][/size]
-<br />&lt;br /&gt;AnimationWatch was made by tonycubed2 working together with Anthropic's Claude (an AI assistant). I decided what the mod should do, set the requirements, built every DLL on my own PC and tested it in my own heavily modded game. Claude wrote the C++ source code to those requirements, checked how the game and Open Animation Replacer work against their own code, and fixed the build errors I reported back.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;[size=4][b]License[/b][/size]
-<br />&lt;br /&gt;AnimationWatch is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;AnimationWatch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details: [url=https://www.gnu.org/licenses/gpl-3.0.html]gnu.org/licenses/gpl-3.0.html[/url]
-<br />&lt;br /&gt;
-<br />&lt;br /&gt;AnimationWatch is built with [url=https://github.com/alandtse/CommonLibVR/tree/ng]CommonLibSSE NG[/url], which is licensed under the GPL-3.0-or-later WITH the Modding Exception AND the GPL-3.0 Linking Exception (with Corresponding Source). Because AnimationWatch links CommonLibSSE NG, AnimationWatch is released under the GPL-3.0-or-later, and its complete source code is available at the GitHub link above. The SKSE Menu Framework API header it includes is MIT licensed.
+<br />
+<br />[i]See which animation your character is really playing, and catch the packs that fight over it[/i]
+<br />
+<br />[url=https://imageshack.com/i/pnrdoXX5j][img]https://imagizer.imageshack.com/v2/1024x768q70/923/rdoXX5.jpg[/img][/url]
+<br />
+<br />
+<br />New feature for mod, view any animation loaded in the game.  First of its kind.
+<br />
+<br />[center][youtube]7M7cnh_Adm0[/youtube][/center]
+<br />
+<br />
+<br />[size=4][b]Why[/b][/size]
+<br />With big Open Animation Replacer / DAR setups, two animation packs can both claim the same animation. When that happens your run, walk or idle keeps switching between the two, and the animation restarts mid-step: stutters, a limp-like loop, or a run that feels uneven. Nothing in the game tells you which packs are doing it. AnimationWatch does.
+<br />
+<br />[size=4][b]What it does[/b][/size]
+<br />[list]
+<br />[*][b]Watches every animation[/b] the player's behavior graphs start (third person and first person), [b]after[/b] OAR/DAR chose their replacement, so you see the file that is really playing and which mod and submod it came from[/*]
+<br />[*]Also logs loop restarts (and whether a loop switched to another variant file) and paired animations such as kill moves[/*]
+<br />[*][b]On-screen notices[/b] (optional), e.g. [i]Anim: mt_runforward.hkx [OAR: CATA / Light Armor][/i][/*]
+<br />[*][b]Session log file[/b] you can attach to a bug report[/*]
+<br />[/list]
+<br />[size=4][b]Animation Dolls (F1 &gt; Animation Watch &gt; Animation Dolls)[/b][/size]
+<br />A page of pictures, one per activity: Running, Sprinting, Walking, Sneaking, Jumping, Swimming, One-handed, Two-handed, Bow, Spellcasting, Unarmed, Kill moves, Horse, Idle and Other. Click a picture to see every animation of that activity around it, each label pointing at the body or the weapon and naming the pack (mod / submod) it comes from.
+<br />[list]
+<br />[*][color=#7CFC00]Green[/color]: one pack provides it[/*]
+<br />[*][color=#FFD700]Yellow[/color]: two or more packs compete for it[/*]
+<br />[*][color=#FF4040]Red[/color]: it flip-flopped between packs this session (switching mid-step)[/*]
+<br />[*]Grey: no pack replaces it (the game's own)[/*]
+<br />[/list]Attacks show on their weapon's picture, also when done while running, sprinting, walking or sneaking. Kill moves and other paired animations have their own picture.
+<br />[list]
+<br />[*][b]Make winner[/b] / [b]Make whole mod win[/b] raise that pack's OAR priority by writing OAR's own user.json for the submod, so you never have to dig through the OAR menu. [b]Undo[/b] puts the original priority back. Restart the game for OAR to use it[/*]
+<br />[*]Old DAR folders: [b]Rename it for me[/b] renames the folder for you (under MO2 the real folder inside the MO2 mod)[/*]
+<br />[*][b]Gear[/b] filter: all gear, light armor, heavy armor, clothing[/*]
+<br />[/list]
+<br />[size=4][b]Animation Viewing Room[/b][/size]
+<br />Click an animation on the Dolls page and a clone of your character, with your gear, plays it in a private viewing room (a small ESL cell). The world is paused while you are in the room, and only the clone is there.
+<br />[list]
+<br />[*]Play, Restart, Stop, Loop, speed, pause and frame-by-frame steps, all as buttons[/*]
+<br />[*][b]Competing versions[/b]: when two or more packs replace the animation, a red dropdown lists every pack's version (winner marked) so you can play them one by one on the clone; [b]Make this the winner[/b] next to it[/*]
+<br />[*]Free camera, orbit view (the camera circles the clone) and an on-screen camera speed panel[/*]
+<br />[*][b]Leave the viewing room[/b] (or Esc) takes you back to where you were[/*]
+<br />[/list]
+<br />[size=4][b]Flip-flop warning[/b][/size]
+<br />When the same animation slot (for example your run) switches to a different mod's file more than twice within 2 seconds, AnimationWatch writes a WARNING to the log and tells you, naming the packs:
+<br />[i]Anim flip-flop: MT_RunForward switched 3 times in 1.2 s: OAR: CATA / Light Armor &lt;-&gt; OAR: CLAMBER / Upwards Run[/i]
+<br />
+<br />[size=4][b]Fixer catalog[/b][/size]
+<br />When a flip-flop warning fires, every OAR submod involved that is set to "interruptible" (it lets another animation cut in mid-step) shows up in [b]F1 &gt; Animation Watch &gt; Fixes[/b], and the game's message box tells you a fix is available (unless you switched off the warnings and pop-ups in the F1 menu).
+<br />[list]
+<br />[*][b]Apply[/b] writes OAR's own per-user settings file (user.json) for that submod, with "interruptible" set to false, so the animation can no longer be cut off mid-step. Under MO2 the file goes into overwrite; nothing in the original mod is changed[/*]
+<br />[*][b]Undo[/b] removes it again, or restores the user.json that was there before[/*]
+<br />[*]Takes effect after you restart the game (OAR reads user.json at startup)[/*]
+<br />[/list]This is fixer #1. Submods that are already non-interruptible are not offered, because their switches are fresh animation starts, not mid-step cuts, and this fix would change nothing. More fixers will be added over time.
+<br />
+<br />[size=4][b]F1 menu (Animation Watch)[/b][/size]
+<br />[list]
+<br />[*]Show animation names on screen (on/off)[/*]
+<br />[*]Write session log file (on/off)[/*]
+<br />[*]Show flip-flop warnings and fix pop-ups on screen (on/off)[/*]
+<br />[*]Number of flip-flop warnings this session, and the last animation[/*]
+<br />[*]Fixes, with Apply and Undo[/*]
+<br />[*]Animation Dolls and the Animation Viewing Room[/*]
+<br />[/list]Settings are saved to Data&#92;SKSE&#92;Plugins&#92;AnimationWatch.ini.
+<br />
+<br />[size=4][b]Files[/b][/size]
+<br />[list]
+<br />[*]Session log: Documents&#92;My Games&#92;Skyrim Special Edition&#92;SKSE&#92;AnimationWatch&#92;Session_&lt;date&gt;_&lt;time&gt;.log[/*]
+<br />[*]Plugin log: Documents&#92;My Games&#92;Skyrim Special Edition&#92;SKSE&#92;AnimationWatch.log[/*]
+<br />[/list]
+<br />[size=4][b]Requirements[/b][/size]
+<br />[list]
+<br />[*]Skyrim SE 1.5.97 or AE[/*]
+<br />[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/30379]SKSE64[/url][/*]
+<br />[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url][/*]
+<br />[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url] (optional, needed for the F1 menu, the Fixes, the Animation Dolls and the viewing room)[/*]
+<br />[/list]
+<br />[size=4][b]Honest limits[/b][/size]
+<br />[list]
+<br />[*]It watches the player only, not NPCs[/*]
+<br />[*]Playing animations on the clone in the viewing room only works on Skyrim 1.6.1170; on other game versions the Dolls page works, but the animation player is switched off[/*]
+<br />[*]It has been tested in my own heavily modded game; please report setups where it misreads something[/*]
+<br />[*]The fixer catalog has one fixer so far (interruptible off)[/*]
+<br />[/list]
+<br />[size=4][b]Installation[/b][/size]
+<br />Install with your mod manager: SKSE&#92;Plugins&#92;AnimationWatch.dll, AnimationWatch.esp (ESL-flagged, holds only the viewing room cell) and the pictures in Interface&#92;AnimationWatch. It writes OAR's own user.json only when you press Apply, Make winner or Make whole mod win.
+<br />
+<br />[size=4][b]Source code[/b][/size]
+<br />[url=https://github.com/Tonycubed2/AnimationWatch]github.com/Tonycubed2/AnimationWatch[/url]
+<br />
+<br />[size=4][b]How AI was used[/b][/size]
+<br />AnimationWatch was made by tonycubed2 working together with Anthropic's Claude (an AI assistant). I decided what the mod should do, set the requirements, built every DLL on my own PC and tested it in my own heavily modded game. Claude wrote the C++ source code to those requirements, checked how the game and Open Animation Replacer work against their own code, and fixed the build errors I reported back.
+<br />
+<br />[size=4][b]License[/b][/size]
+<br />AnimationWatch is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+<br />
+<br />AnimationWatch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details: [url=https://www.gnu.org/licenses/gpl-3.0.html]gnu.org/licenses/gpl-3.0.html[/url]
+<br />
+<br />AnimationWatch is built with [url=https://github.com/alandtse/CommonLibVR/tree/ng]CommonLibSSE NG[/url], which is licensed under the GPL-3.0-or-later WITH the Modding Exception AND the GPL-3.0 Linking Exception (with Corresponding Source). Because AnimationWatch links CommonLibSSE NG, AnimationWatch is released under the GPL-3.0-or-later, and its complete source code is available at the GitHub link above. The SKSE Menu Framework API header it includes is MIT licensed.
+<br />
