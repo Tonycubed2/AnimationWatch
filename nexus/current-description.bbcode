@@ -1,0 +1,77 @@
+[size=5][b]AnimationWatch[/b][/size]
+<br />
+<br />[i]See which animation your character is really playing, and catch the packs that fight over it[/i]
+<br />
+<br />[url=https://imageshack.com/i/pnrdoXX5j][img]https://imagizer.imageshack.com/v2/1024x768q70/923/rdoXX5.jpg[/img][/url]
+<br />
+<br />
+<br />New feature for mod, view any animation loaded in the game.  First of its kind.
+<br />
+<br />[center][youtube]7M7cnh_Adm0[/youtube][/center]
+<br />
+<br />
+<br />[size=4][b]Why[/b][/size]
+<br />With big Open Animation Replacer / DAR setups, two animation packs can both claim the same animation. When that happens your run, walk or idle keeps switching between the two, and the animation restarts mid-step: stutters, a limp-like loop, or a run that feels uneven. Nothing in the game tells you which packs are doing it. AnimationWatch does.
+<br />
+<br />[size=4][b]What it does[/b][/size]
+<br />[list]
+<br />[*][b]Watches every animation[/b] the player's behavior graphs start (third person and first person), [b]after[/b] OAR/DAR chose their replacement, so you see the file that is really playing and which mod and submod it came from[/*]
+<br />[*]Also logs loop restarts (and whether a loop switched to another variant file) and paired animations such as kill moves[/*]
+<br />[*][b]On-screen notices[/b] (optional), e.g. [i]Anim: mt_runforward.hkx [OAR: CATA / Light Armor][/i][/*]
+<br />[*][b]Session log file[/b] you can attach to a bug report[/*]
+<br />[/list]
+<br />[size=4][b]Flip-flop warning[/b][/size]
+<br />When the same animation slot (for example your run) switches to a different mod's file more than twice within 2 seconds, AnimationWatch writes a WARNING to the log and tells you, naming the packs:
+<br />[i]Anim flip-flop: MT_RunForward switched 3 times in 1.2 s: OAR: CATA / Light Armor &lt;-&gt; OAR: CLAMBER / Upwards Run[/i]
+<br />
+<br />[size=4][b]Fixer catalog[/b][/size]
+<br />When a flip-flop warning fires, every OAR submod involved that is set to "interruptible" (it lets another animation cut in mid-step) shows up in [b]F1 &gt; Animation Watch &gt; Fixes[/b], and the game's message box tells you a fix is available.
+<br />[list]
+<br />[*][b]Apply[/b] writes OAR's own per-user settings file (user.json) for that submod, with "interruptible" set to false, so the animation can no longer be cut off mid-step. Under MO2 the file goes into overwrite; nothing in the original mod is changed[/*]
+<br />[*][b]Undo[/b] removes it again, or restores the user.json that was there before[/*]
+<br />[*]Takes effect after you restart the game (OAR reads user.json at startup)[/*]
+<br />[/list]This is fixer #1. Submods that are already non-interruptible are not offered, because their switches are fresh animation starts, not mid-step cuts, and this fix would change nothing. More fixers will be added over time.
+<br />
+<br />[size=4][b]F1 menu (Animation Watch)[/b][/size]
+<br />[list]
+<br />[*]Show animation names on screen (on/off)[/*]
+<br />[*]Write session log file (on/off)[/*]
+<br />[*]Show flip-flop warnings on screen (on/off)[/*]
+<br />[*]Number of flip-flop warnings this session, and the last animation[/*]
+<br />[*]Fixes, with Apply and Undo[/*]
+<br />[/list]Settings are saved to Data&#92;SKSE&#92;Plugins&#92;AnimationWatch.ini.
+<br />
+<br />[size=4][b]Files[/b][/size]
+<br />[list]
+<br />[*]Session log: Documents&#92;My Games&#92;Skyrim Special Edition&#92;SKSE&#92;AnimationWatch&#92;Session_&lt;date&gt;_&lt;time&gt;.log[/*]
+<br />[*]Plugin log: Documents&#92;My Games&#92;Skyrim Special Edition&#92;SKSE&#92;AnimationWatch.log[/*]
+<br />[/list]
+<br />[size=4][b]Requirements[/b][/size]
+<br />[list]
+<br />[*]Skyrim SE 1.5.97 or AE[/*]
+<br />[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/30379]SKSE64[/url][/*]
+<br />[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url][/*]
+<br />[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url] (optional, needed for the F1 menu and the Fixes)[/*]
+<br />[/list]
+<br />[size=4][b]Honest limits[/b][/size]
+<br />[list]
+<br />[*]It watches the player only, not NPCs[/*]
+<br />[*]It has been tested in my own heavily modded game; please report setups where it misreads something[/*]
+<br />[*]The fixer catalog has one fixer so far (interruptible off)[/*]
+<br />[/list]
+<br />[size=4][b]Installation[/b][/size]
+<br />Install with your mod manager: SKSE&#92;Plugins&#92;AnimationWatch.dll. It only watches (and, if you press Apply, writes OAR's own user.json), adds no plugin and stores nothing in your save. Safe to add or remove at any time.
+<br />
+<br />[size=4][b]Source code[/b][/size]
+<br />[url=https://github.com/Tonycubed2/AnimationWatch]github.com/Tonycubed2/AnimationWatch[/url]
+<br />
+<br />[size=4][b]How AI was used[/b][/size]
+<br />AnimationWatch was made by tonycubed2 working together with Anthropic's Claude (an AI assistant). I decided what the mod should do, set the requirements, built every DLL on my own PC and tested it in my own heavily modded game. Claude wrote the C++ source code to those requirements, checked how the game and Open Animation Replacer work against their own code, and fixed the build errors I reported back.
+<br />
+<br />[size=4][b]License[/b][/size]
+<br />AnimationWatch is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+<br />
+<br />AnimationWatch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details: [url=https://www.gnu.org/licenses/gpl-3.0.html]gnu.org/licenses/gpl-3.0.html[/url]
+<br />
+<br />AnimationWatch is built with [url=https://github.com/alandtse/CommonLibVR/tree/ng]CommonLibSSE NG[/url], which is licensed under the GPL-3.0-or-later WITH the Modding Exception AND the GPL-3.0 Linking Exception (with Corresponding Source). Because AnimationWatch links CommonLibSSE NG, AnimationWatch is released under the GPL-3.0-or-later, and its complete source code is available at the GitHub link above. The SKSE Menu Framework API header it includes is MIT licensed.
+<br />[color=#D4D4D8]nspired or helped you.[/color]
