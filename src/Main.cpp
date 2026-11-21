@@ -1,4 +1,5 @@
-// AnimationWatch 1.9.3
+// AnimationWatch 2.0.0
+// 2.0.0: F1 menu "Playing now" list: every animation playing on the player right now, live, with its mod.
 // 1.9.3: the animation player and viewing room work on every game version (SE 1.5.97, AE 1.6.x and 1.7.x), not only 1.6.1170.
 // 1.9.2: Animation Dolls: new "Kill moves" tile (paired animations); attacks done while running, sprinting, walking or
 // sneaking now show on their weapon's tile (One-handed, Two-handed, Bow, Unarmed, Spellcasting) instead of the movement tile.
@@ -61,7 +62,7 @@
 #include "FreeCam.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 9, 3, 0 },
+	.Version = REL::Version{ 2, 0, 0, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -121,7 +122,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.9.3 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 2.0.0 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -476,6 +477,9 @@ namespace
 		std::string                  graph;       // project name, e.g. DefaultMale / FirstPerson
 		RE::hkbCharacterStringData*  stringData = nullptr;
 		std::uint16_t                lastIndex = 0xFFFF;
+		std::string                  clipName;    // 2.0: for the "Playing now" list
+		std::string                  path;        // 2.0: the file playing now (kept as text, the graph can go away)
+		double                       since = 0.0; // 2.0: when this file started playing
 	};
 
 	std::shared_mutex                                   g_clipLock;
@@ -542,6 +546,9 @@ namespace
 		info.graph = project ? project : "";
 		info.stringData = StringDataOf(a_context.character);
 		info.lastIndex = a_this->animationBindingIndex;
+		info.clipName = a_this->name.data() ? a_this->name.data() : "";
+		info.path = AnimPath(info.stringData, info.lastIndex);
+		info.since = Now();
 		{
 			std::unique_lock l{ g_clipLock };
 			g_playerClips[a_this] = info;
@@ -567,6 +574,10 @@ namespace
 		{
 			std::unique_lock l{ g_clipLock };
 			if (const auto it = g_playerClips.find(a_this); it != g_playerClips.end()) {
+				if (index != it->second.lastIndex) {
+					it->second.path = AnimPath(info.stringData, index);
+					it->second.since = Now();
+				}
 				it->second.lastIndex = index;
 			}
 		}
@@ -650,7 +661,33 @@ namespace
 			std::scoped_lock l{ g_notifyLock };
 			current = g_current;
 		}
-		ImGuiMCP::TextUnformatted(("Last animation: " + (current.empty() ? std::string("-") : current)).c_str());
+		// 2.0: what is playing on the player right now (every clip between its start and its stop), live
+		std::vector<ClipInfo> playing;
+		{
+			std::shared_lock cl{ g_clipLock };
+			playing.reserve(g_playerClips.size());
+			for (const auto& [clip, info] : g_playerClips) {
+				playing.push_back(info);
+			}
+		}
+		std::ranges::sort(playing, [](const ClipInfo& a, const ClipInfo& b) { return a.since > b.since; });
+		const double now = Now();
+		ImGuiMCP::Separator();
+		ImGuiMCP::TextUnformatted(std::format("Playing now ({}):", playing.size()).c_str());
+		if (playing.empty()) {
+			ImGuiMCP::TextUnformatted("  nothing");
+		}
+		int shown = 0;
+		for (const auto& p : playing) {
+			if (++shown > 40) {
+				ImGuiMCP::TextUnformatted(std::format("  ... and {} more", playing.size() - 40).c_str());
+				break;
+			}
+			const bool firstPerson = p.graph.find("FirstPerson") != std::string::npos;
+			ImGuiMCP::TextUnformatted(std::format("  {}{}   ({:.1f} s)", firstPerson ? "[1st person] " : "", ShortName(p.path), now - p.since).c_str());
+		}
+		ImGuiMCP::Separator();
+		ImGuiMCP::TextUnformatted(("Last started: " + (current.empty() ? std::string("-") : current)).c_str());
 		ImGuiMCP::TextUnformatted("Log folder: Documents\\My Games\\Skyrim Special Edition\\SKSE\\AnimationWatch");
 		ImGuiMCP::Separator();
 		ImGuiMCP::TextUnformatted("Fixes (take effect after the game restarts):");
@@ -676,6 +713,10 @@ namespace
 
 	void OnMessage(SKSE::MessagingInterface::Message* a_msg)
 	{
+		if (a_msg->type == SKSE::MessagingInterface::kPreLoadGame || a_msg->type == SKSE::MessagingInterface::kNewGame) {
+			std::unique_lock l{ g_clipLock };  // 2.0: the old graph's clips never report a stop; start the list fresh
+			g_playerClips.clear();
+		}
 		if (a_msg->type == SKSE::MessagingInterface::kPostLoadGame) {
 			AnimPlayer::OnGameLoad();
 			FreeCam::OnGameLoad();
@@ -705,7 +746,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	if (auto log = spdlog::default_logger()) {
 		log->flush_on(spdlog::level::trace);  // 1.8.8: every line is on disk at once, no need to quit the game for the log
 	}
-	logger::info("AnimationWatch 1.9.3 loading; game runtime {}", REL::Module::get().version().string());
+	logger::info("AnimationWatch 2.0.0 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
 	Clone::InstallSerialization();

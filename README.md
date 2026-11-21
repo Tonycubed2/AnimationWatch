@@ -183,3 +183,10 @@ Skyrim SE 1.5.97, all AE 1.6.x and 1.7.x. Before, it was switched off on everyth
 Each game address was checked against both game exes, 1.5.97 and 1.6.1170.
 AnimationWatch.esp now has a 1.70 header, so Skyrim SE 1.5.97 loads it without Backported Extended
 ESL Support (before, the viewing room cell could be missing on 1.5.97).
+
+2.0.0
+-----
+New in the F1 menu (Animation Watch > Settings): "Playing now", a live list of every animation playing
+on your character right now (third and first person), each with the mod / submod it comes from and how
+long it has been playing. No on-screen messages needed. The old "Last animation" line is now
+"Last started": it shows the last animation that started, which may already have stopped.
