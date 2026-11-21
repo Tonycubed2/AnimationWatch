@@ -1,7 +1,8 @@
 name: Nexus mod page description
 
 # Actions tab -> "Nexus mod page description" -> Run workflow.
-#   action "get": downloads the current mod page description (BBCode) and summary as the artifact "nexus-page".
+#   action "get": downloads the current mod page description (BBCode) and summary, and commits them to main as
+#                 nexus/current-description.bbcode and nexus/current-summary.txt (also kept as the artifact "nexus-page").
 #   action "set": first saves the current page (artifact "nexus-page-backup"), then replaces the description
 #                 with nexus/description.bbcode from main (PATCH /v3/mods/{id}).
 # Nothing is built here.
@@ -20,7 +21,7 @@ on:
         default: get
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   page:
@@ -66,3 +67,14 @@ jobs:
             --data "$body" "https://api.nexusmods.com/v3/mods/$MOD_ID")
           echo "HTTP $code"; cat resp.json 2>/dev/null; echo
           if [ "$code" != "204" ] && [ "$code" != "200" ]; then echo "::error::Nexus refused the description (HTTP $code): $(head -c 300 resp.json)"; exit 1; fi
+
+      - name: Commit the current page to main
+        if: inputs.action == 'get'
+        run: |
+          mkdir -p nexus
+          cp page/description.bbcode nexus/current-description.bbcode
+          cp page/summary.txt nexus/current-summary.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nexus/current-description.bbcode nexus/current-summary.txt
+          if git diff --cached --quiet; then echo "No change"; else git commit -m "Nexus page as it is now (read through the API)" && git push; fi
