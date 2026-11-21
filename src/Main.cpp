@@ -1,4 +1,6 @@
-// AnimationWatch 1.9.0
+// AnimationWatch 1.9.1
+// 1.9.1: switching off "Show flip-flop warnings" now also stops the FIX AVAILABLE pop-up (it ignored the setting);
+// plugin version reported to SKSE was still 1.8.6, now matches.
 // Built against CommonLibSSE-NG for Skyrim AE 1.6.1170 (Address Library).
 //
 // Watches every animation clip the player's behavior graphs start (third person and first person),
@@ -56,7 +58,7 @@
 #include "FreeCam.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 8, 6, 0 },
+	.Version = REL::Version{ 1, 9, 1, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -116,7 +118,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.9.0 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 1.9.1 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -358,7 +360,7 @@ namespace
 			}
 			g_fixes.push_back({ "flip-flop: interruptible off", source, a_slot, dir, ours ? "applied earlier (active)" : "suggested" });
 			WriteLine(std::format("{} | - | FIX SUGGESTED | {} is interruptible and flip-flops on {} | {}", WallClock(), source, a_slot, dir));
-			if (!ours) {
+			if (!ours && g_showWarnings) {  // 1.9.1: the pop-up obeys "Show flip-flop warnings and fix pop-ups on screen"; the fix is still listed in F1 > Fixes
 				if (const auto tasks = SKSE::GetTaskInterface()) {
 					auto text = std::format("AnimationWatch - FIX AVAILABLE\n\n{}\ncan be cut off mid-step and keeps swapping with other animations on {}.\n\nOpen F1 > Animation Watch > Fixes and press Apply, then restart the game.", source, a_slot);
 					tasks->AddTask([text = std::move(text)]() { RE::DebugMessageBox(text.c_str()); });
@@ -635,7 +637,7 @@ namespace
 			SaveSettings();
 		}
 		bool warn = g_showWarnings;
-		if (ImGuiMCP::Checkbox("Show flip-flop warnings on screen", &warn)) {
+		if (ImGuiMCP::Checkbox("Show flip-flop warnings and fix pop-ups on screen", &warn)) {
 			g_showWarnings = warn;
 			SaveSettings();
 		}
@@ -700,7 +702,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	if (auto log = spdlog::default_logger()) {
 		log->flush_on(spdlog::level::trace);  // 1.8.8: every line is on disk at once, no need to quit the game for the log
 	}
-	logger::info("AnimationWatch 1.9.0 loading; game runtime {}", REL::Module::get().version().string());
+	logger::info("AnimationWatch 1.9.1 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
 	Clone::InstallSerialization();

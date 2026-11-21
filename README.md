@@ -160,3 +160,11 @@ submod's priority; restart the game for OAR to use it). Old DAR folders are rena
 Only packs that apply to the gear filter on the Dolls page are listed. A version limited by its
 pack's conditions is played anyway in the preview (in the game it only plays when they pass).
 Every pick is written to the log ("Viewing room: competing version picked ...").
+
+1.9.1
+-----
+Fix: switching off "Show flip-flop warnings on screen" in the F1 menu did not stop the
+"AnimationWatch - FIX AVAILABLE" pop-up box that comes with a flip-flop. Now the setting (renamed
+"Show flip-flop warnings and fix pop-ups on screen") stops both. Flip-flops are still written to
+the session log, still marked red on the Animation Dolls page, and their fixes are still listed
+in F1 > Animation Watch > Fixes. The SKSE log now reports the right plugin version (it said 1.8.6).
