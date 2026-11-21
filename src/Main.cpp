@@ -1,5 +1,5 @@
 // AnimationWatch 1.9.3
-// 1.9.3: the animation player and viewing room work on every AE game version (1.6.x and 1.7.x), not only 1.6.1170.
+// 1.9.3: the animation player and viewing room work on every game version (SE 1.5.97, AE 1.6.x and 1.7.x), not only 1.6.1170.
 // 1.9.2: Animation Dolls: new "Kill moves" tile (paired animations); attacks done while running, sprinting, walking or
 // sneaking now show on their weapon's tile (One-handed, Two-handed, Bow, Unarmed, Spellcasting) instead of the movement tile.
 // 1.9.1: switching off "Show flip-flop warnings" now also stops the FIX AVAILABLE pop-up (it ignored the setting);

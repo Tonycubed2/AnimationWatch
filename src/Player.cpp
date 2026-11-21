@@ -109,21 +109,26 @@ namespace AnimPlayer
 
 		// ------------------------------------------------------------------ the game's functions
 		using GenId_t = void (*)(ID*, const char*);
-		using Find_t = bool (*)(void*, const ID*, void**);
+		using Find_t = bool (*)(void*, const ID*, void**);   // AE 64039: (database, id, out entry)
+		using FindSE_t = void* (*)(void*, const ID*);        // SE 63107: (database + 0x110, id) -> entry
 		using Queue_t = std::int32_t (*)(void*, const ID*);
 		using Sample_t = void (*)(const void*, float, void*, float*, void*);
 
 		// 1.9.3: one Address Library id per runtime (SE 1.5.x, AE 1.6.x / 1.7.x). The AE ids exist with an address in
 		// every AE database (checked in the offsets of 1.6.318, 1.6.353, 1.6.1170, 1.7.99 and 1.7.104). SE ids: the
 		// ones CommonLibSSE-NG pairs with them (ID::GenerateFromPath 68635, AnimationFileManagerSingleton 520994) and
-		// the SE<->AE address match of the Address Library tools (63076, 516410). 0: not known for that runtime.
+		// the SE<->AE address match of the Address Library tools (63076, 516410), each checked by disassembling
+		// SkyrimSE.exe 1.5.97 against 1.6.1170 (same code). 0: not known for that runtime.
 		std::uintptr_t Addr(std::uint64_t a_se, std::uint64_t a_ae)
 		{
 			const auto id = REL::Module::IsAE() ? a_ae : a_se;
 			return id ? REL::ID(id).address() : 0;
 		}
 
-		constexpr std::uint64_t kFindSE = 0;  // BSResource::EntryDB<BShkbHkxDB::DBTraits>::Find on 1.5.97: not verified yet
+		// The animation database lookup. AE 64039 takes the database and does the work on database + 0x110; on SE the
+		// same code is 63107, which takes database + 0x110 itself and returns the entry (checked in both exes: same
+		// read lock at +0x1C, bucket lookup, id compare, "loaded" state test, reference count +1).
+		constexpr std::uint64_t kFindSE = 63107;
 
 		void* Database() { return P(Q(P(Addr(516410, 402581)), 0)); }
 
@@ -140,12 +145,22 @@ namespace AnimPlayer
 
 		bool Find(const ID& a_id, void*& a_entry)
 		{
-			const auto fn = reinterpret_cast<Find_t>(Addr(kFindSE, 64039));
-			void*      db = Database();
+			void* db = Database();
 			a_entry = nullptr;
 			if (!db) {
 				return false;
 			}
+			if (!REL::Module::IsAE()) {
+				const auto fnSE = reinterpret_cast<FindSE_t>(Addr(kFindSE, 0));
+				__try {
+					a_entry = fnSE(static_cast<std::uint8_t*>(db) + 0x110, &a_id);
+					return a_entry != nullptr;
+				} __except (EXCEPTION_EXECUTE_HANDLER) {
+					a_entry = nullptr;
+					return false;
+				}
+			}
+			const auto fn = reinterpret_cast<Find_t>(Addr(0, 64039));
 			__try {
 				return fn(db, &a_id, &a_entry) && a_entry;
 			} __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -994,8 +1009,8 @@ namespace AnimPlayer
 			logger::info("Camera controls window {}", g_camWindow ? "registered" : "NOT registered");
 			logger::info("Viewing room control panel {}", g_roomWindow ? "registered" : "NOT registered");
 		}
-		// 1.9.3: every AE version (1.6.x and 1.7.x), not only 1.6.1170. SE 1.5.97 waits for one address (kFindSE).
-		if (REL::Module::IsVR() || (!REL::Module::IsAE() && kFindSE == 0)) {
+		// 1.9.3: every game version (SE 1.5.97, AE 1.6.x and 1.7.x), not only 1.6.1170. VR is not supported.
+		if (REL::Module::IsVR()) {
 			SetStatus(std::format("the animation player does not support Skyrim {} yet", REL::Module::get().version().string()));
 			return;
 		}
