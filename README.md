@@ -175,3 +175,11 @@ Animation Dolls: new "Kill moves" tile (its own picture) for kill moves and othe
 they were on the Other tile before. Attacks done while running, sprinting, walking or sneaking now
 show on their weapon's tile (One-handed, Two-handed, Bow, Unarmed, Spellcasting); before, a running
 or sprinting power attack landed on the Running or Sprinting tile and never showed with its weapon.
+
+1.9.3
+-----
+The Animation Viewing Room (playing animations on the clone) now works on every game version:
+Skyrim SE 1.5.97, all AE 1.6.x and 1.7.x. Before, it was switched off on everything but 1.6.1170.
+Each game address was checked against both game exes, 1.5.97 and 1.6.1170.
+AnimationWatch.esp now has a 1.70 header, so Skyrim SE 1.5.97 loads it without Backported Extended
+ESL Support (before, the viewing room cell could be missing on 1.5.97).
