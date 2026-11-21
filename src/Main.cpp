@@ -1,4 +1,6 @@
-// AnimationWatch 1.9.1
+// AnimationWatch 1.9.2
+// 1.9.2: Animation Dolls: new "Kill moves" tile (paired animations); attacks done while running, sprinting, walking or
+// sneaking now show on their weapon's tile (One-handed, Two-handed, Bow, Unarmed, Spellcasting) instead of the movement tile.
 // 1.9.1: switching off "Show flip-flop warnings" now also stops the FIX AVAILABLE pop-up (it ignored the setting);
 // plugin version reported to SKSE was still 1.8.6, now matches.
 // Built against CommonLibSSE-NG for Skyrim AE 1.6.1170 (Address Library).
@@ -58,7 +60,7 @@
 #include "FreeCam.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 9, 1, 0 },
+	.Version = REL::Version{ 1, 9, 2, 0 },
 	.Name = "AnimationWatch"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -118,7 +120,7 @@ namespace
 		const auto name = std::format("Session_{:04}-{:02}-{:02}_{:02}-{:02}-{:02}.log", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
 		g_file.open(*dir / name, std::ios::out | std::ios::trunc);
 		if (g_file) {
-			g_file << "AnimationWatch 1.9.1 - animations started on the player (after OAR/DAR replacement)\n";
+			g_file << "AnimationWatch 1.9.2 - animations started on the player (after OAR/DAR replacement)\n";
 			g_file << "time | graph | event | clip (behavior node) | animation file\n";
 			g_file.flush();
 			logger::info("Session log: {}", (*dir / name).string());
@@ -702,7 +704,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	if (auto log = spdlog::default_logger()) {
 		log->flush_on(spdlog::level::trace);  // 1.8.8: every line is on disk at once, no need to quit the game for the log
 	}
-	logger::info("AnimationWatch 1.9.1 loading; game runtime {}", REL::Module::get().version().string());
+	logger::info("AnimationWatch 1.9.2 loading; game runtime {}", REL::Module::get().version().string());
 	LoadSettings();
 	OpenSessionFile();
 	Clone::InstallSerialization();

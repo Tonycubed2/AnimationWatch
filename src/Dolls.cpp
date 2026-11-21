@@ -99,7 +99,7 @@ namespace Dolls
 		std::string              g_scanInfo = "reading animation packs...";
 
 		const char* const kActivities[] = { "Running", "Sprinting", "Walking", "Sneaking", "Jumping", "Swimming", "One-handed", "Two-handed", "Bow",
-			"Spellcasting", "Unarmed", "Horse", "Idle", "Other" };
+			"Spellcasting", "Unarmed", "Kill moves", "Horse", "Idle", "Other" };
 		constexpr int kActivityCount = static_cast<int>(std::size(kActivities));
 
 		std::string Lower(std::string a_text)
@@ -112,7 +112,18 @@ namespace Dolls
 		{
 			auto has = [&](std::string_view s) { return a_file.find(s) != std::string::npos; };
 			auto starts = [&](std::string_view s) { return a_file.rfind(s, 0) == 0; };
-			if (has("horse")) return 11;
+			// 1.9.2: kill moves (paired animations) get their own tile
+			if (starts("paired_") || has("killmove") || has("kill_move")) return 11;
+			if (has("horse")) return 12;
+			// 1.9.2: an attack goes to its weapon's tile even when it is done running, sprinting, walking or sneaking
+			// (before, a running power attack landed on Running and never showed on the weapon tile)
+			if (has("attack") || has("power") || has("bash")) {
+				if (starts("mlh_") || starts("mrh_") || starts("mag_")) return 9;
+				if (starts("bow") || has("crossbow")) return 8;
+				if (starts("1hm_") || starts("1hd_") || starts("dw_") || starts("shd_")) return 6;
+				if (starts("2hm_") || starts("2hw_")) return 7;
+				if (starts("h2h") || has("unarmed")) return 10;
+			}
 			if (has("sprint")) return 1;
 			if (has("run")) return 0;
 			if (has("walk")) return 2;
@@ -124,8 +135,8 @@ namespace Dolls
 			if (starts("1hm_") || starts("1hd_") || starts("dw_") || starts("shd_") || has("block")) return 6;
 			if (starts("2hm_") || starts("2hw_")) return 7;
 			if (starts("h2h") || has("unarmed")) return 10;
-			if (has("idle")) return 12;
-			return 13;
+			if (has("idle")) return 13;
+			return 14;
 		}
 
 		std::string ReadText(const fs::path& a_path)
@@ -581,6 +592,7 @@ namespace Dolls
 			{ "bow", 577.0f / 768.0f, { 0.74f, 0.24f }, { 0.15f, 0.25f }, { 0.74f, 0.24f }, { 0.45f, 0.42f } },           // Bow
 			{ "spellcasting", 576.0f / 768.0f, { 0.82f, 0.18f }, { 0.15f, 0.38f }, { 0.82f, 0.18f }, { 0.45f, 0.40f } },  // Spellcasting
 			{ "unarmed", 576.0f / 768.0f, { 0.75f, 0.28f }, { 0.30f, 0.40f }, { 0.75f, 0.28f }, { 0.50f, 0.36f } },       // Unarmed
+			{ "kill_moves", 615.0f / 768.0f, { 0.20f, 0.12f }, { 0.12f, 0.55f }, { 0.85f, 0.62f }, { 0.42f, 0.40f } },    // Kill moves
 			{ "horse", 691.0f / 768.0f, { 0.27f, 0.31f }, { 0.15f, 0.60f }, { 0.88f, 0.48f }, { 0.45f, 0.35f } },         // Horse
 			{ "idle", 577.0f / 768.0f, { 0.62f, 0.55f }, { 0.35f, 0.45f }, { 0.62f, 0.45f }, { 0.50f, 0.35f } },          // Idle
 			{ "other", 576.0f / 768.0f, { 0.80f, 0.38f }, { 0.20f, 0.40f }, { 0.80f, 0.38f }, { 0.50f, 0.36f } },         // Other
@@ -663,7 +675,7 @@ namespace Dolls
 			                    has("arrow") || has("shoot") || has("aim") || has("cast") || has("release") || has("ready") || has("charge") ||
 			                    has("swing") || has("combo") || has("kill") || has("recoil") || has("parry") || has("slash") || has("stab") ||
 			                    has("strike") || has("shield") || has("knock") || starts("bow") || has("crossbow");
-			const bool moving = a_activity <= 5 || a_activity == 11;  // running .. swimming, horse
+			const bool moving = a_activity <= 5 || a_activity == 12;  // running .. swimming, horse
 			if (moving) {
 				if (const auto d = direction()) {
 					return *d;

@@ -168,3 +168,10 @@ Fix: switching off "Show flip-flop warnings on screen" in the F1 menu did not st
 "Show flip-flop warnings and fix pop-ups on screen") stops both. Flip-flops are still written to
 the session log, still marked red on the Animation Dolls page, and their fixes are still listed
 in F1 > Animation Watch > Fixes. The SKSE log now reports the right plugin version (it said 1.8.6).
+
+1.9.2
+-----
+Animation Dolls: new "Kill moves" tile (its own picture) for kill moves and other paired animations;
+they were on the Other tile before. Attacks done while running, sprinting, walking or sneaking now
+show on their weapon's tile (One-handed, Two-handed, Bow, Unarmed, Spellcasting); before, a running
+or sprinting power attack landed on the Running or Sprinting tile and never showed with its weapon.
