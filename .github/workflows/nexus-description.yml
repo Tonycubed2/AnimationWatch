@@ -1,0 +1,68 @@
+name: Nexus mod page description
+
+# Actions tab -> "Nexus mod page description" -> Run workflow.
+#   action "get": downloads the current mod page description (BBCode) and summary as the artifact "nexus-page".
+#   action "set": first saves the current page (artifact "nexus-page-backup"), then replaces the description
+#                 with nexus/description.bbcode from main (PATCH /v3/mods/{id}).
+# Nothing is built here.
+#
+# Uses, in the "nexus" environment:
+#   secret   NEXUSMODS_API_KEY
+#   variable NEXUSMODS_MOD_ID   - optional; "Unique Mod ID" (default 7318624472044)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "get = download the current page, set = replace it with nexus/description.bbcode"
+        type: choice
+        options: [get, set]
+        default: get
+
+permissions:
+  contents: read
+
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    environment: nexus
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Save the current page
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID || '7318624472044' }}
+        run: |
+          if [ -z "$KEY" ]; then echo "::error::Secret NEXUSMODS_API_KEY is missing in the nexus environment"; exit 1; fi
+          mkdir -p page
+          code=$(curl -sS -o page/mod.json -w '%{http_code}' -H "apikey: $KEY" -H "User-Agent: AnimationWatch-release" \
+            "https://api.nexusmods.com/v3/mods/$MOD_ID")
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then echo "::error::Nexus refused the read (HTTP $code): $(head -c 300 page/mod.json)"; exit 1; fi
+          jq -r '(.data // .) | .description // empty' page/mod.json > page/description.bbcode
+          jq -r '(.data // .) | .summary // empty' page/mod.json > page/summary.txt
+          wc -c page/description.bbcode page/summary.txt
+
+      - name: Upload the saved page
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.action == 'set' && 'nexus-page-backup' || 'nexus-page' }}
+          path: page/
+
+      - name: Replace the description
+        if: inputs.action == 'set'
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID || '7318624472044' }}
+        run: |
+          if [ ! -s nexus/description.bbcode ]; then echo "::error::nexus/description.bbcode is missing or empty"; exit 1; fi
+          body=$(jq -n --rawfile d nexus/description.bbcode '{description: $d}')
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X PATCH \
+            -H "apikey: $KEY" -H "Content-Type: application/json" -H "User-Agent: AnimationWatch-release" \
+            --data "$body" "https://api.nexusmods.com/v3/mods/$MOD_ID")
+          echo "HTTP $code"; cat resp.json 2>/dev/null; echo
+          if [ "$code" != "204" ] && [ "$code" != "200" ]; then echo "::error::Nexus refused the description (HTTP $code): $(head -c 300 resp.json)"; exit 1; fi
